@@ -1,0 +1,26 @@
+# Docker ignore — keep image lean
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.git/
+.gitignore
+.env
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+.DS_Store
+.venv/
+venv/
+.venv.bak/
+env.bak/
+data/club_management.db
+uploads/__pycache__/
+.claude/

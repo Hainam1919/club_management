@@ -1,0 +1,43 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Node
+node_modules/
+.next/
+out/
+
+# Data & uploads
+data/
+uploads/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+*.egg-info/
+dist/
+build/
+
+# Logs
+*.log
+
+# AI report files (generated docs)
+*_REPORT.md
+*_SUMMARY.md
+*_CHECKLIST.md
+*_VERIFICATION.md
+*_READY.txt
+*_UPGRADE.md

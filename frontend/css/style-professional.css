@@ -1,0 +1,164 @@
+/* =========================================================
+   PROFESSIONAL UI OVERLAY  v3  (Modern Minimal)
+   Lớp tinh chỉnh giao diện chuyên nghiệp, tối giản, dễ nhìn.
+   Load SAU style.css — chỉ ghi đè bề ngoài, không phá cấu trúc.
+   ========================================================= */
+
+:root {
+    /* Brand: indigo chủ đạo, bớt neon */
+    --primary: #4f46e5;
+    --primary-dark: #4338ca;
+    --primary-light: #818cf8;
+    --primary-50: #eef2ff;
+    --secondary: #0891b2;
+    --secondary-dark: #0e7490;
+    --accent: #14b8a6;
+    --success: #059669;
+    --warning: #d97706;
+    --danger: #dc2626;
+    --info: #2563eb;
+
+    /* Surfaces sạch, tối giản */
+    --bg: #f7f8fb;
+    --bg-soft: #f0f1f6;
+    --bg-mute: #e9eaf1;
+    --surface: #ffffff;
+    --surface-hover: #fafbfd;
+    --surface-2: #f8f9fc;
+    --border: #e4e7ee;
+    --border-soft: #eef0f5;
+
+    /* Gradients nhã nhặn hơn */
+    --gradient-1: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    --gradient-2: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+    --gradient-3: linear-gradient(135deg, #14b8a6 0%, #0ea5e9 100%);
+    --gradient-4: linear-gradient(135deg, #10b981 0%, #14b8a6 100%);
+    --gradient-5: linear-gradient(135deg, #f472b6 0%, #fb7185 100%);
+    --gradient-6: linear-gradient(135deg, #22d3ee 0%, #6366f1 100%);
+    --gradient-ai: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    --gradient-aurora: linear-gradient(135deg, #0ea5e9 0%, #2563eb 50%, #7c3aed 100%);
+    --gradient-sunset: linear-gradient(135deg, #fb7185 0%, #fbbf24 100%);
+    --gradient-hero: linear-gradient(140deg, #111827 0%, #1e293b 55%, #312e81 100%);
+
+    /* Shadow nhẹ, chuyên nghiệp */
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+    --shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+    --shadow-md: 0 12px 28px rgba(15, 23, 42, 0.08);
+    --shadow-lg: 0 20px 40px rgba(15, 23, 42, 0.10);
+    --shadow-xl: 0 30px 50px rgba(15, 23, 42, 0.18);
+    --shadow-2xl: 0 40px 70px rgba(15, 23, 42, 0.26);
+    --shadow-glow: 0 0 24px rgba(79, 70, 229, 0.25);
+    --shadow-glow-pink: 0 0 28px rgba(244, 114, 182, 0.25);
+    --shadow-inner: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+
+    /* Radius gọn gàng hơn */
+    --radius-xs: 6px;
+    --radius-sm: 8px;
+    --radius: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 22px;
+    --radius-2xl: 28px;
+}
+
+/* ---------- Typography ---------- */
+body { letter-spacing: -0.01em; }
+h1, h2, h3, h4, h5, h6 { letter-spacing: -0.02em; }
+.section-eyebrow {
+    letter-spacing: 0.14em;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 12px;
+    color: var(--primary);
+}
+
+/* ---------- Navbar ---------- */
+.navbar {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border-bottom: 1px solid var(--border-soft);
+}
+[data-theme="dark"] .navbar {
+    background: rgba(19, 26, 63, 0.85);
+}
+.navbar.scrolled { background: rgba(255, 255, 255, 0.95); }
+[data-theme="dark"] .navbar.scrolled { background: rgba(13, 18, 48, 0.95); }
+.nav-link { font-weight: 600; }
+
+/* =========================================================
+   COMPONENTS — sạch & nhất quán
+   ========================================================= */
+/* Buttons */
+.btn {
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    transition: all 200ms var(--ease);
+}
+.btn::before { display: none; }
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary), #7c3aed);
+    box-shadow: 0 6px 18px rgba(79, 70, 229, 0.28);
+}
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 26px rgba(79, 70, 229, 0.36);
+}
+.btn-secondary {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+.btn-secondary:hover { border-color: var(--primary-light); background: var(--bg-soft); }
+.btn-danger { box-shadow: 0 6px 16px rgba(220, 38, 38, 0.22); }
+.btn-success { box-shadow: 0 6px 16px rgba(5, 150, 105, 0.22); }
+
+/* Cards */
+.card { box-shadow: var(--shadow-sm); border-color: var(--border-soft); }
+.card::before { display: none; }
+.card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.card-flat { box-shadow: none; }
+
+.club-card { box-shadow: var(--shadow-sm); }
+.club-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--border);
+}
+.event-card:hover, .member-card:hover, .post-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-3px);
+}
+
+/* Stats */
+.stat-card { box-shadow: var(--shadow-sm); border-color: var(--border-soft); }
+.stat-card:hover { box-shadow: var(--shadow-md); }
+.stat-icon { border-radius: var(--radius-sm); }
+
+/* Forms */
+.form-label { font-weight: 600; color: var(--text-soft); font-size: 13px; letter-spacing: 0.01em; }
+.form-input, .form-textarea, .form-select {
+    border-radius: var(--radius-sm);
+    border-color: var(--border);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.form-input:focus, .form-textarea:focus, .form-select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+/* Badges & tags */
+.badge { border-radius: var(--radius-full); font-weight: 600; }
+.tag-pill { border-radius: var(--radius-full); font-weight: 600; }
+
+/* Thanh cuộn tinh tế */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; background-clip: content-box; }

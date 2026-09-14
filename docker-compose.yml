@@ -1,0 +1,87 @@
+version: "3.9"
+
+######################################
+# Docker Compose for CLB Student Hub
+# Services: backend, (optional) redis, (optional) db, nginx
+######################################
+services:
+  # --- Main Application (Backend + Frontend) ---
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: club_management_app
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/app
+      - APP_ENV=${APP_ENV:-production}
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+      - ./frontend:/app/frontend
+    depends_on:
+      - redis
+      - db
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - club-network
+
+  # --- Database (PostgreSQL) ---
+  db:
+    image: postgres:16-alpine
+    container_name: club_management_db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+      - POSTGRES_DB=${DB_NAME:-club_hub}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - club-network
+
+  # --- Redis (caching + rate limiting) ---
+  redis:
+    image: redis:7-alpine
+    container_name: club_management_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - club-network
+
+  # --- Nginx Reverse Proxy (optional, for HTTPS) ---
+  # Uncomment below + mount your SSL certs to enable
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: club_management_nginx
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx:/etc/nginx/conf.d
+  #     - ./ssl:/etc/nginx/ssl
+  #     - ./frontend:/usr/share/nginx/html:ro
+  #   depends_on:
+  #     - app
+  #   networks:
+  #     - club-network
+
+networks:
+  club-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  postgres-data:

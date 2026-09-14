@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLB Student Hub - Hệ thống Quản lý Câu lạc bộ Sinh viên với AI</title>
+    <link rel="stylesheet" href="/static/css/style.css?v=ui28">
+    <link rel="stylesheet" href="/static/css/style-professional.css?v=prof4">
+    <link rel="stylesheet" href="/static/css/3d-badges.css?v=ui26">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- ============= NAVBAR ============= -->
+        <nav class="navbar" id="navbar">
+            <div class="nav-container">
+                <a href="#" class="logo">
+                    <div class="logo-icon">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                    </div>
+                    <div class="logo-text">
+                        <span class="logo-title">CLB Hub</span>
+                    </div>
+                </a>
+
+                <div class="nav-menu" id="navMenu">
+                    <a class="nav-link active" data-page="home" title="Trang chủ"><i class="fa-solid fa-house"></i><span>Trang chủ</span></a>
+                    <a class="nav-link" data-page="clubs" title="Câu lạc bộ"><i class="fa-solid fa-people-group"></i><span>CLB</span></a>
+                    <a class="nav-link" data-page="events" title="Sự kiện"><i class="fa-solid fa-calendar-star"></i><span>Sự kiện</span></a>
+                    <a class="nav-link" data-page="posts" title="Tin tức"><i class="fa-solid fa-newspaper"></i><span>Tin tức</span></a>
+                    <a class="nav-link" data-page="members" title="Sinh viên"><i class="fa-solid fa-user-graduate"></i><span>Sinh viên</span></a>
+                    <a class="nav-link nav-ai" data-page="ai-insights" title="AI Insights"><i class="fa-solid fa-brain"></i><span>AI</span><span class="badge-ai">NEW</span></a>
+                    <a class="nav-link nav-ai" data-page="ai-studio" title="AI Studio"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Studio</span><span class="badge-ai">AI</span></a>
+                    <a class="nav-link" data-page="timeline" title="Hoạt động"><i class="fa-solid fa-bolt"></i><span>Hoạt động</span></a>
+                    <a class="nav-link" data-page="leaderboard" title="Xếp hạng"><i class="fa-solid fa-trophy"></i><span>Xếp hạng</span></a>
+                    <a class="nav-link" data-page="calendar" title="Lịch"><i class="fa-solid fa-calendar-days"></i><span>Lịch</span></a>
+                    <a class="nav-link" data-page="certificates" title="Chứng nhận"><i class="fa-solid fa-certificate"></i><span>Chứng nhận</span></a>
+                    <a class="nav-link" data-page="settings" title="Cài đặt"><i class="fa-solid fa-gear"></i><span>Cài đặt</span></a>
+                </div>
+
+                <div class="nav-actions" id="navActions">
+                    <!-- Sẽ render theo trạng thái đăng nhập -->
+                </div>
+
+                <button class="nav-toggle" id="navToggle">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+            </div>
+        </nav>
+
+        <!-- ============= MAIN CONTENT ============= -->
+        <main id="mainContent">
+            <!-- Trang sẽ được render động -->
+        </main>
+
+        <!-- ============= COMMAND PALETTE / GLOBAL SEARCH ============= -->
+        <div class="command-palette" id="commandPalette" hidden>
+            <div class="command-overlay"></div>
+            <div class="command-content">
+                <div class="command-input-wrap">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="commandInput" placeholder="Tìm kiếm mọi thứ... (CLB, sự kiện, thành viên)" autocomplete="off">
+                    <kbd>ESC</kbd>
+                </div>
+                <div class="command-results" id="commandResults">
+                    <div class="command-section">
+                        <div class="command-section-title">💡 Gợi ý nhanh</div>
+                        <div class="command-item" data-page="home">
+                            <i class="fa-solid fa-house"></i> Trang chủ
+                        </div>
+                        <div class="command-item" data-page="clubs">
+                            <i class="fa-solid fa-people-group"></i> Tất cả câu lạc bộ
+                        </div>
+                        <div class="command-item" data-page="events">
+                            <i class="fa-solid fa-calendar-star"></i> Sự kiện sắp tới
+                        </div>
+                        <div class="command-item" data-page="ai-assistant">
+                            <i class="fa-solid fa-robot"></i> Hỏi AI Assistant
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============= NOTIFICATIONS ============= -->
+        <div class="notification-panel" id="notificationPanel" hidden>
+            <div class="notification-header">
+                <h3>Thông báo</h3>
+                <button id="markAllRead"><i class="fa-solid fa-check-double"></i> Đánh dấu đã đọc</button>
+            </div>
+            <div class="notification-list" id="notificationList">
+                <div class="notification-empty">Không có thông báo mới</div>
+            </div>
+        </div>
+
+        <!-- ============= AI FLOATING BUTTON ============= -->
+        <button class="ai-fab" id="aiFab" title="Mở AI Assistant">
+            <i class="fa-solid fa-robot"></i>
+            <span class="ai-pulse"></span>
+        </button>
+
+        <!-- ============= AI CHAT MODAL ============= -->
+        <div class="ai-modal glass" id="aiModal" hidden>
+            <div class="ai-modal-content" style="display: flex; flex-direction: column; height: 100%;">
+                <div class="ai-modal-header">
+                    <div class="ai-avatar">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                    <div class="ai-info">
+                        <h3>AI Assistant</h3>
+                        <span class="ai-status"><span class="dot"></span> Đang hoạt động</span>
+                    </div>
+                    <button class="ai-close" id="aiClose">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="ai-messages" id="aiMessages">
+                    <div class="ai-message bot">
+                        <div class="ai-msg-avatar"><i class="fa-solid fa-robot"></i></div>
+                        <div class="ai-msg-bubble">
+                            Xin chào! 👋 Tôi là trợ lý AI của CLB Hub. Tôi có thể giúp bạn:
+                            <ul>
+                                <li>Tìm CLB phù hợp với sở thích</li>
+                                <li>Tư vấn sự kiện sắp tới</li>
+                                <li>Phân tích & tóm tắt thông tin</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="ai-suggestions" id="aiSuggestions">
+                    <button class="ai-sug-btn" data-q="Có những CLB nào nổi bật?">
+                        <i class="fa-solid fa-star"></i> CLB nổi bật
+                    </button>
+                    <button class="ai-sug-btn" data-q="Sự kiện sắp tới">
+                        <i class="fa-solid fa-calendar"></i> Sự kiện sắp tới
+                    </button>
+                    <button class="ai-sug-btn" data-q="Làm sao để đăng ký tham gia CLB?">
+                        <i class="fa-solid fa-circle-info"></i> Cách tham gia
+                    </button>
+                    <button class="ai-sug-btn" data-q="Tư vấn CLB phù hợp với tôi">
+                        <i class="fa-solid fa-lightbulb"></i> Tư vấn cho tôi
+                    </button>
+                </div>
+                <form class="ai-input-form" id="aiForm">
+                    <input type="text" id="aiInput" placeholder="Nhập câu hỏi của bạn..." autocomplete="off">
+                    <button type="submit" id="aiSend">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ============= TOAST ============= -->
+        <div class="toast-container" id="toastContainer"></div>
+
+        <!-- ============= FOOTER ============= -->
+        <footer class="footer">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>CLB Student Hub</h4>
+                    <p>Hệ thống quản lý câu lạc bộ sinh viên tích hợp AI - Công nghệ 2026.</p>
+                    <p class="footer-tech">
+                        <span class="tech-badge">FastAPI</span>
+                        <span class="tech-badge">Ollama AI</span>
+                        <span class="tech-badge">PostgreSQL</span>
+                        <span class="tech-badge">JWT Auth</span>
+                    </p>
+                </div>
+                <div class="footer-section">
+                    <h4>Khám phá</h4>
+                    <a data-page="clubs">Câu lạc bộ</a>
+                    <a data-page="events">Sự kiện</a>
+                    <a data-page="posts">Tin tức</a>
+                    <a data-page="members">Sinh viên</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Công cụ</h4>
+                    <a data-page="ai-assistant">AI Assistant</a>
+                    <a data-page="dashboard">Dashboard</a>
+                    <a href="/docs">API Docs</a>
+                    <a href="/redoc">ReDoc</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Liên hệ</h4>
+                    <p style="font-size:13px"><i class="fa-solid fa-envelope"></i> support@ictu.edu.vn</p>
+                    <p style="font-size:13px"><i class="fa-solid fa-phone"></i> 0208 765 4321</p>
+                    <div class="social-links" style="margin-top:12px">
+                        <a href="#"><i class="fa-brands fa-facebook"></i></a>
+                        <a href="#"><i class="fa-brands fa-youtube"></i></a>
+                        <a href="#"><i class="fa-brands fa-github"></i></a>
+                        <a href="#"><i class="fa-brands fa-tiktok"></i></a>
+                    </div>
+                </div>
+                <div class="footer-section">
+                    <h4>Về chúng tôi</h4>
+                    <a data-page="about">Giới thiệu</a>
+                    <a data-page="ai-insights">AI Features</a>
+                    <a href="/docs">API Documentation</a>
+                    <a href="/redoc">ReDoc</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 CLB Student Hub. All rights reserved. · Built with ❤️ by Nam Ha · Powered by AI</p>
+                <div class="footer-bottom-links">
+                    <a data-page="about">Giới thiệu</a>
+                    <a href="/docs" target="_blank">API</a>
+                    <a data-page="settings">Cài đặt</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="/static/js/api.js?v=upgrade5"></script>
+    <script src="/static/js/streaming.js?v=upgrade4"></script>
+    <script src="/static/js/ai-icons.js?v=upgrade4"></script>
+    <script src="/static/js/app.js?v=upgrade4"></script>
+    <script src="/static/js/pages.js?v=upgrade7"></script>
+    <script src="/static/js/pages-ai.js?v=upgrade4"></script>
+    <script src="/static/js/ai.js?v=upgrade4"></script>
+    <script>
+        // PWA Service Worker - Tạm thời tắt để xóa cache cũ
+        /*
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/service-worker.js')
+                .then(() => console.log('PWA registered'))
+                .catch(err => console.log('PWA failed:', err));
+        }
+        */
+    </script>
+</body>
+</html>

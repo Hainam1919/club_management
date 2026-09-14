@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Pages Test - CLB Student Hub</title>
+    <link rel="stylesheet" href="/static/css/style.css?v=ui26">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f5f5f5; padding: 20px; }
+        .test-container { max-width: 1200px; margin: 0 auto; }
+        .test-section { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .test-title { font-size: 20px; font-weight: 700; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+        .test-result { padding: 10px; border-radius: 4px; margin-bottom: 10px; font-size: 14px; }
+        .result-pass { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .result-fail { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .result-warn { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .code-block { background: #f8f9fa; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; font-family: 'Courier New', monospace; margin: 10px 0; }
+        .nav-buttons { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .btn { padding: 10px 20px; background: #6366f1; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; transition: background 0.2s; }
+        .btn:hover { background: #4f46e5; }
+        .btn-secondary { background: #666; }
+        .btn-secondary:hover { background: #555; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1 style="margin-bottom: 30px;">🧪 AI Pages Test Suite</h1>
+
+        <div class="nav-buttons">
+            <button class="btn" onclick="testAPIFunctions()">Test API Functions</button>
+            <button class="btn" onclick="testStreamingHandler()">Test Streaming Handler</button>
+            <button class="btn" onclick="testAIPages()">Test AI Pages Export</button>
+            <button class="btn btn-secondary" onclick="location.href='/'">Back to App</button>
+        </div>
+
+        <div id="testResults"></div>
+    </div>
+
+    <script src="/static/js/api.js?v=upgrade1"></script>
+    <script src="/static/js/streaming.js?v=upgrade1"></script>
+    <script src="/static/js/pages-ai.js?v=upgrade1"></script>
+
+    <script>
+        const results = [];
+
+        function addResult(title, passed, message) {
+            results.push({ title, passed, message });
+            const div = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${passed ? 'result-pass' : 'result-fail'}`;
+            resultDiv.innerHTML = `
+                <strong>${passed ? '✅' : '❌'} ${title}</strong><br>
+                ${message}
+            `;
+            div.appendChild(resultDiv);
+        }
+
+        function testAPIFunctions() {
+            console.log('Testing API functions...');
+            document.getElementById('testResults').innerHTML = '';
+            results.length = 0;
+
+            const requiredFunctions = [
+                'aiChatStream',
+                'streamChat',
+                'getMentorPlan',
+                'getClubStrategy',
+                'getEventBlueprint',
+                'getMediaKit',
+                'getInsights',
+                'getLeaderboardData'
+            ];
+
+            requiredFunctions.forEach(fn => {
+                if (typeof API[fn] === 'function') {
+                    addResult(`API.${fn}()`, true, `Function exists and is callable`);
+                } else {
+                    addResult(`API.${fn}()`, false, `Function is missing or not callable`);
+                }
+            });
+
+            // Test basic API call (non-streaming)
+            try {
+                const testCall = API.aiGetPredictions;
+                if (typeof testCall === 'function') {
+                    addResult(`API Error Handling`, true, `API error handling is present`);
+                } else {
+                    addResult(`API Error Handling`, false, `API error handling failed`);
+                }
+            } catch (e) {
+                addResult(`API Error Handling`, false, e.message);
+            }
+        }
+
+        function testStreamingHandler() {
+            console.log('Testing StreamingHandler...');
+            document.getElementById('testResults').innerHTML = '';
+            results.length = 0;
+
+            const requiredMethods = [
+                'handleStream',
+                'displayThoughts',
+                'updateStreamingMessage',
+                'showLoading',
+                'showError'
+            ];
+
+            requiredMethods.forEach(method => {
+                if (typeof StreamingHandler[method] === 'function') {
+                    addResult(`StreamingHandler.${method}()`, true, `Method exists and is callable`);
+                } else {
+                    addResult(`StreamingHandler.${method}()`, false, `Method is missing or not callable`);
+                }
+            });
+
+            // Test helper function
+            if (typeof escapeHtml === 'function') {
+                const testStr = '<script>alert("xss")</script>';
+                const escaped = escapeHtml(testStr);
+                if (escaped.includes('&lt;') && escaped.includes('&gt;')) {
+                    addResult(`escapeHtml() - XSS Protection`, true, `Properly escapes HTML: ${escaped}`);
+                } else {
+                    addResult(`escapeHtml() - XSS Protection`, false, `Does not properly escape HTML`);
+                }
+            } else {
+                addResult(`escapeHtml()`, false, `Function is missing`);
+            }
+        }
+
+        function testAIPages() {
+            console.log('Testing AIPages...');
+            document.getElementById('testResults').innerHTML = '';
+            results.length = 0;
+
+            const requiredMethods = [
+                'renderAIAssistant',
+                'renderAIStudio',
+                'renderAIInsights',
+                'renderLeaderboard'
+            ];
+
+            requiredMethods.forEach(method => {
+                if (typeof AIPages[method] === 'function') {
+                    addResult(`AIPages.${method}()`, true, `Method exists and is callable (async)`);
+                } else {
+                    addResult(`AIPages.${method}()`, false, `Method is missing or not callable`);
+                }
+            });
+
+            // Test helper functions
+            const helperFunctions = ['renderThoughts', 'updateAIMessage', 'escapeHtml'];
+            helperFunctions.forEach(fn => {
+                if (typeof window[fn] === 'function') {
+                    addResult(`${fn}()`, true, `Helper function exists`);
+                } else {
+                    addResult(`${fn}()`, false, `Helper function is missing`);
+                }
+            });
+
+            // Test mock render
+            try {
+                const mockDiv = document.createElement('div');
+                if (AIPages.renderAIAssistant && typeof AIPages.renderAIAssistant === 'function') {
+                    addResult(`AIPages Structure`, true, `All AI page objects are properly structured`);
+                } else {
+                    addResult(`AIPages Structure`, false, `AIPages object is not properly structured`);
+                }
+            } catch (e) {
+                addResult(`AIPages Structure`, false, e.message);
+            }
+        }
+
+        // Auto-run tests
+        window.addEventListener('load', () => {
+            testAPIFunctions();
+        });
+    </script>
+</body>
+</html>

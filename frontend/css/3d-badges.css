@@ -1,0 +1,255 @@
+/* ============= 3D/4D GRADIENT BADGES ============= */
+/* Modern 3D badges với hiệu ứng chiều sâu, glow, shimmer */
+
+.category-label-3d {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 16px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 700;
+    color: white;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    overflow: hidden;
+    isolation: isolate;
+    transform: translateZ(0);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.15),
+        0 2px 4px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.category-label-3d::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, transparent 50%, rgba(0, 0, 0, 0.1) 100%);
+    z-index: -1;
+    pointer-events: none;
+}
+
+.category-label-3d::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+    transition: left 0.6s;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.category-label-3d:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow:
+        0 8px 24px rgba(0, 0, 0, 0.2),
+        0 4px 8px rgba(0, 0, 0, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.category-label-3d:hover::after {
+    left: 150%;
+}
+
+/* ============ 3D STYLED GRADIENTS ============ */
+
+/* Học thuật - Deep Ocean 3D */
+.badge-3d-academic {
+    background:
+        linear-gradient(135deg, #667eea 0%, #4f46e5 50%, #3730a3 100%),
+        radial-gradient(circle at 30% 30%, rgba(165, 180, 252, 0.6), transparent 50%);
+    box-shadow:
+        0 4px 12px rgba(79, 70, 229, 0.4),
+        0 2px 4px rgba(0, 0, 0, 0.1),
+        inset 0 2px 0 rgba(255, 255, 255, 0.3),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+        inset 2px 0 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Thể thao - Gold Royal 3D */
+.badge-3d-sport {
+    background:
+        linear-gradient(135deg, #fde047 0%, #f59e0b 50%, #b45309 100%),
+        radial-gradient(circle at 30% 30%, rgba(254, 240, 138, 0.7), transparent 50%);
+    box-shadow:
+        0 4px 12px rgba(245, 158, 11, 0.5),
+        0 2px 4px rgba(0, 0, 0, 0.1),
+        inset 0 2px 0 rgba(255, 255, 255, 0.4),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+        inset 2px 0 0 rgba(255, 255, 255, 0.15);
+}
+
+/* Văn nghệ - Neon Pink 3D */
+.badge-3d-art {
+    background:
+        linear-gradient(135deg, #f0abfc 0%, #ec4899 50%, #86198f 100%),
+        radial-gradient(circle at 30% 30%, rgba(249, 168, 212, 0.6), transparent 50%);
+    box-shadow:
+        0 4px 12px rgba(236, 72, 153, 0.5),
+        0 2px 4px rgba(0, 0, 0, 0.1),
+        inset 0 2px 0 rgba(255, 255, 255, 0.35),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+        inset 2px 0 0 rgba(255, 255, 255, 0.15);
+}
+
+/* Tình nguyện - Emerald 3D */
+.badge-3d-volunteer {
+    background:
+        linear-gradient(135deg, #6ee7b7 0%, #10b981 50%, #047857 100%),
+        radial-gradient(circle at 30% 30%, rgba(110, 231, 183, 0.6), transparent 50%);
+    box-shadow:
+        0 4px 12px rgba(16, 185, 129, 0.5),
+        0 2px 4px rgba(0, 0, 0, 0.1),
+        inset 0 2px 0 rgba(255, 255, 255, 0.35),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+        inset 2px 0 0 rgba(255, 255, 255, 0.15);
+}
+
+/* Kỹ năng - Cyber Blue 3D */
+.badge-3d-skill {
+    background:
+        linear-gradient(135deg, #7dd3fc 0%, #3b82f6 50%, #1e3a8a 100%),
+        radial-gradient(circle at 30% 30%, rgba(125, 211, 252, 0.6), transparent 50%);
+    box-shadow:
+        0 4px 12px rgba(59, 130, 246, 0.5),
+        0 2px 4px rgba(0, 0, 0, 0.1),
+        inset 0 2px 0 rgba(255, 255, 255, 0.35),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+        inset 2px 0 0 rgba(255, 255, 255, 0.15);
+}
+
+/* Truyền thông - Cosmic Purple 3D */
+.badge-3d-media {
+    background:
+        linear-gradient(135deg, #c084fc 0%, #9333ea 50%, #581c87 100%),
+        radial-gradient(circle at 30% 30%, rgba(192, 132, 252, 0.6), transparent 50%);
+    box-shadow:
+        0 4px 12px rgba(147, 51, 234, 0.5),
+        0 2px 4px rgba(0, 0, 0, 0.1),
+        inset 0 2px 0 rgba(255, 255, 255, 0.35),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+        inset 2px 0 0 rgba(255, 255, 255, 0.15);
+}
+
+/* ============ 4D HOLOGRAPHIC (Cầu vồng chuyển động) ============ */
+.badge-4d-holographic {
+    background: linear-gradient(
+        135deg,
+        #667eea 0%,
+        #ec4899 25%,
+        #f59e0b 50%,
+        #10b981 75%,
+        #667eea 100%
+    );
+    background-size: 400% 400%;
+    animation: holographic 6s ease infinite;
+    box-shadow:
+        0 4px 20px rgba(102, 126, 234, 0.4),
+        0 2px 8px rgba(236, 72, 153, 0.3),
+        inset 0 2px 0 rgba(255, 255, 255, 0.4),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.15);
+}
+
+@keyframes holographic {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+/* ============ 4D NEON GLOW ============ */
+.badge-4d-neon {
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+    color: #a5b4fc;
+    border: 1.5px solid #6366f1;
+    box-shadow:
+        0 0 12px rgba(99, 102, 241, 0.6),
+        0 0 24px rgba(99, 102, 241, 0.3),
+        inset 0 0 8px rgba(99, 102, 241, 0.2);
+    text-shadow: 0 0 8px rgba(165, 180, 252, 0.8);
+    animation: neonPulse 2s ease-in-out infinite;
+}
+
+@keyframes neonPulse {
+    0%, 100% { box-shadow: 0 0 12px rgba(99, 102, 241, 0.6), 0 0 24px rgba(99, 102, 241, 0.3), inset 0 0 8px rgba(99, 102, 241, 0.2); }
+    50% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.9), 0 0 40px rgba(99, 102, 241, 0.5), inset 0 0 12px rgba(99, 102, 241, 0.3); }
+}
+
+/* ============ 4D GLASS MORPHISM ============ */
+.badge-4d-glass {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.1));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* ============ 4D METALLIC ============ */
+.badge-4d-metallic {
+    background: linear-gradient(135deg,
+        #e5e7eb 0%,
+        #9ca3af 25%,
+        #f3f4f6 50%,
+        #6b7280 75%,
+        #d1d5db 100%
+    );
+    background-size: 200% 200%;
+    color: #1f2937;
+    animation: metallicShift 4s ease infinite;
+    box-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+@keyframes metallicShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+/* ============ 4D ANIMATED BORDER ============ */
+.badge-4d-animated {
+    background: linear-gradient(135deg, #1e1b4b, #312e81);
+    position: relative;
+    color: white;
+    z-index: 1;
+}
+
+.badge-4d-animated::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    background: linear-gradient(45deg,
+        #667eea, #ec4899, #f59e0b, #10b981, #3b82f6, #667eea
+    );
+    background-size: 400% 400%;
+    z-index: -2;
+    animation: borderRotate 4s linear infinite;
+}
+
+.badge-4d-animated::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: inherit;
+    z-index: -1;
+}
+
+@keyframes borderRotate {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}

@@ -1,0 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 15 23 42;
+  --background-start-rgb: 250 251 255;
+  --background-end-rgb: 243 244 249;
+}
+
+[data-theme="dark"] {
+  --foreground-rgb: 241 245 249;
+  --background-start-rgb: 10 14 39;
+  --background-end-rgb: 15 20 58;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-start-rgb));
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/70 dark:bg-surface-dark/70 backdrop-blur-xl saturate-150 border border-white/30 dark:border-white/10;
+  }
+
+  .btn-primary {
+    @apply bg-gradient-ai text-white shadow-lg hover:shadow-primary/40 transition-all duration-300 hover:-translate-y-0.5 active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply bg-surface-light dark:bg-surface-dark text-text-soft dark:text-text-soft border border-border shadow-sm hover:border-primary-light transition-all duration-300;
+  }
+
+  .card-modern {
+    @apply bg-surface-light dark:bg-surface-dark border border-border-soft dark:border-white/10 rounded-lg shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+  }
+}
