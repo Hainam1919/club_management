@@ -106,6 +106,7 @@ class ClubOut(ClubBase):
     ai_summary: Optional[str] = None
     ai_tags: Optional[str] = None
     created_at: datetime
+    is_member: bool = False  # Người đang xem đã là thành viên CLB hay chưa
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -144,6 +145,7 @@ class EventOut(EventBase):
     ai_sentiment: Optional[str] = None
     ai_success_score: Optional[float] = None
     created_at: datetime
+    is_registered: bool = False  # Người đang xem đã đăng ký sự kiện hay chưa
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -156,6 +158,30 @@ class EventRegistrationOut(BaseModel):
     feedback: Optional[str] = None
     rating: Optional[int] = None
     registered_at: datetime
+    # Thông tin người đăng ký (đồng bộ với ClubMemberOut)
+    full_name: Optional[str] = None
+    username: Optional[str] = None
+    avatar: Optional[str] = None
+    faculty: Optional[str] = None
+    student_id: Optional[str] = None
+    class_name: Optional[str] = None
+    is_me: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ClubMemberOut(BaseModel):
+    """Thành viên CLB (kèm thông tin user)"""
+    user_id: int
+    username: str
+    full_name: str
+    avatar: Optional[str] = None
+    faculty: Optional[str] = None
+    student_id: Optional[str] = None
+    role: str = "member"
+    joined_at: Optional[datetime] = None
+    contribution_score: float = 0.0
+    is_me: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

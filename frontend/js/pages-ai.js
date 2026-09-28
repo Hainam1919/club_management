@@ -1,7 +1,7 @@
 // ============= AI PAGES =============
 const AIPages = {
 
-    // ============= AI ASSISTANT (Streaming Chat + Thought Visualizer) =============
+    // ============= AI ASSISTANT (Streaming Chat + Thought Visualizer Realtime) =============
     async renderAIAssistant(main) {
         main.innerHTML = `
             <section class="detail-header" style="background:var(--gradient-ai)">
@@ -9,16 +9,19 @@ const AIPages = {
                     <div class="detail-header-content">
                         <h1><i class="fa-solid fa-robot"></i> AI Assistant</h1>
                         <p>Chat với AI về CLB, sự kiện, chiến lược và cải thiện cộng đồng</p>
+                        <div>
+                            <span class="badge badge-primary" id="aiModelChip"><i class="fa-solid fa-microchip"></i> Đang khởi động...</span>
+                        </div>
                     </div>
                 </div>
             </section>
 
             <section class="section">
                 <div class="container">
-                    <div style="display:grid; grid-template-columns:1fr 320px; gap:24px; max-width:1200px;">
+                    <div style="display:grid; grid-template-columns:1fr 340px; gap:24px; max-width:1200px;">
                         <!-- Chat Area -->
                         <div class="card">
-                            <div id="aiChatMessages" style="height:600px; overflow-y:auto; display:flex; flex-direction:column; gap:16px; padding:20px; margin:-24px -24px 0 -24px; padding:20px; background:var(--bg-soft);">
+                            <div id="aiChatMessages" style="height:580px; overflow-y:auto; display:flex; flex-direction:column; gap:16px; padding:20px; background:var(--bg-soft);">
                                 <div class="ai-message bot">
                                     <div class="ai-msg-avatar"><i class="fa-solid fa-robot"></i></div>
                                     <div class="ai-msg-bubble">
@@ -32,7 +35,7 @@ const AIPages = {
                                 </div>
                             </div>
 
-                            <form id="aiChatForm" style="display:flex; gap:8px; padding:20px; background:var(--surface); border-top:1px solid var(--border);">
+                            <form id="aiChatForm" style="display:flex; gap:8px; padding:16px; background:var(--surface); border-top:1px solid var(--border);">
                                 <input type="text" id="aiChatInput" placeholder="Nhập câu hỏi..."
                                     style="flex:1; padding:12px 16px; border:1px solid var(--border); border-radius:var(--radius-full); background:var(--bg-soft);">
                                 <button type="submit" id="aiChatSubmit" class="btn btn-primary btn-icon" style="width:44px; height:44px;">
@@ -42,26 +45,40 @@ const AIPages = {
                         </div>
 
                         <!-- Thought Process Panel -->
-                        <div class="card" style="height:fit-content;">
-                            <h3 style="font-size:16px; margin-bottom:16px; display:flex; align-items:center; gap:8px;">
-                                <i class="fa-solid fa-lightbulb"></i> Tư duy AI
+                        <div class="card" style="position:sticky; top:24px; height:fit-content;">
+                            <h3 style="font-size:16px; margin-bottom:4px; display:flex; align-items:center; gap:8px;">
+                                <i class="fa-solid fa-brain"></i> Bộ não AI
                             </h3>
-                            <div id="aiThoughts" style="max-height:500px; overflow-y:auto;">
-                                <div style="color:var(--text-mute); font-size:13px; text-align:center; padding:20px;">
-                                    Tư duy sẽ hiện khi có câu trả lời...
-                                </div>
-                            </div>
+                            <p style="font-size:12px; color:var(--text-mute); margin-bottom:12px;">Quan sát quá trình suy luận theo thời gian thực</p>
+                            <div id="aiThoughts" style="max-height:480px; overflow-y:auto;"></div>
                         </div>
                     </div>
                 </div>
             </section>
         `;
 
+        // Model info chip
+        API.aiGetModelInfo().then(info => {
+            const chip = main.querySelector('#aiModelChip');
+            if (!chip) return;
+            if (info.available) {
+                const model = info.default_model || 'llama';
+                chip.innerHTML = `<i class="fa-solid fa-microchip"></i> Ollama · ${escapeHtml(model)} <span style="opacity:.7">(${info.loaded_models.length} model sẵn sàng)</span>`;
+                chip.className = 'badge badge-success';
+            } else {
+                chip.innerHTML = `<i class="fa-solid fa-lightbulb"></i> Chế độ chuyên gia (offline)` ;
+                chip.className = 'badge badge-warning';
+            }
+        }).catch(() => {
+            const chip = main.querySelector('#aiModelChip');
+            if (chip) chip.remove();
+        });
+
         // Chat event handlers
         const form = main.querySelector('#aiChatForm');
         const input = main.querySelector('#aiChatInput');
         const messagesDiv = main.querySelector('#aiChatMessages');
-        const thoughtsDiv = main.querySelector('#aiThoughts');
+        const panel = createThoughtPanel(main.querySelector('#aiThoughts'));
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -69,8 +86,8 @@ const AIPages = {
             if (!message) return;
 
             input.value = '';
+            messagesDiv.querySelector('.ai-msg-bubble')?.parentElement?.scrollIntoView({ block: 'end' });
 
-            // Add user message
             const userMsgDiv = document.createElement('div');
             userMsgDiv.className = 'ai-message user';
             userMsgDiv.innerHTML = `
@@ -80,32 +97,41 @@ const AIPages = {
             messagesDiv.appendChild(userMsgDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-            // Show loading
-            thoughtsDiv.innerHTML = '<div style="text-align:center; padding:12px;"><div class="spinner" style="margin:0 auto;"></div></div>';
+            panel.clear();
+            panel.loading(true);
 
             try {
                 const response = await API.aiChatStream(message, null, 'general');
 
                 await StreamingHandler.handleStream(response, {
-                    onThought: (content, step) => {
-                        renderThoughts(Array.from(thoughtsDiv.querySelectorAll('.ai-thought')).map(el => el.textContent).concat([content]), thoughtsDiv);
+                    onThought: (content, data, title) => {
+                        panel.loading(false);
+                        panel.add({
+                            stepName: data.step_name || data.type,
+                            title: title,
+                            content: content,
+                            status: data.status || 'completed'
+                        });
                     },
                     onContent: (content) => {
                         StreamingHandler.updateStreamingMessage(messagesDiv, content);
                     },
                     onError: (err) => {
-                        thoughtsDiv.innerHTML = `<div style="color:var(--danger); font-size:13px; padding:12px;">⚠️ ${err}</div>`;
-                    }
+                        panel.loading(false);
+                        panel.add({ title: '⚠️ Lỗi', content: err, status: 'error' });
+                    },
+                    onComplete: () => panel.loading(false)
                 });
             } catch (err) {
-                thoughtsDiv.innerHTML = `<div style="color:var(--danger); font-size:13px; padding:12px;">⚠️ ${err.message}</div>`;
+                panel.loading(false);
+                panel.add({ title: '⚠️ Lỗi', content: err.message, status: 'error' });
             }
 
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         });
     },
 
-    // ============= AI STUDIO (4 Tabs: Mentor, Strategy, Event, Media) =============
+    // ============= AI STUDIO PRO (4 Agents + Realtime Thought Visualizer) =============
     async renderAIStudio(main) {
         const user = API.getUser();
         const clubs = user ? await API.getClubs().catch(() => []) : [];
@@ -114,8 +140,8 @@ const AIPages = {
             <section class="detail-header" style="background:var(--gradient-ai)">
                 <div class="container">
                     <div class="detail-header-content">
-                        <h1><i class="fa-solid fa-wand-magic-sparkles"></i> AI Studio</h1>
-                        <p>Tạo nội dung, lên chiến lược và quản lý sự kiện với AI</p>
+                        <h1><i class="fa-solid fa-wand-magic-sparkles"></i> AI Studio Pro</h1>
+                        <p>Giao diện 4 chuyên gia AI · xem bộ não AI suy luận từng bước theo thời gian thực</p>
                     </div>
                 </div>
             </section>
@@ -129,138 +155,143 @@ const AIPages = {
                         <div class="tab" data-tab="media"><i class="fa-solid fa-image"></i> Nội dung</div>
                     </div>
 
-                    <!-- TAB 1: MENTOR -->
-                    <div class="tab-content active" data-tab="mentor">
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
-                            <div class="card">
-                                <h3>Tư vấn Mentor</h3>
-                                <form id="mentorForm" style="display:flex; flex-direction:column; gap:16px; margin-top:16px;">
-                                    <div>
-                                        <label class="form-label">Chọn CLB</label>
-                                        <select id="mentorClubId" class="form-select" required>
-                                            <option value="">-- Chọn CLB --</option>
-                                            ${clubs.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
-                                        </select>
+                    <div style="display:grid; grid-template-columns:1fr 340px; gap:24px; align-items:start; margin-top:24px;">
+                        <div>
+                            <!-- TAB 1: MENTOR -->
+                            <div class="tab-content active" data-tab="mentor">
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+                                    <div class="card">
+                                        <h3><i class="fa-solid fa-person-chalkboard" style="color:var(--primary)"></i> Tư vấn Mentor</h3>
+                                        <form id="mentorForm" style="display:flex; flex-direction:column; gap:16px; margin-top:16px;">
+                                            <div>
+                                                <label class="form-label">Vai trò mục tiêu</label>
+                                                <input type="text" id="mentorRole" class="form-input" value="Phát triển toàn diện" placeholder="VD: AI Engineer, Tech Lead...">
+                                            </div>
+                                            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-wand-magic-sparkles"></i> Tạo lộ trình</button>
+                                        </form>
                                     </div>
-                                    <div>
-                                        <label class="form-label">Chủ đề tư vấn</label>
-                                        <textarea id="mentorTopic" class="form-textarea" placeholder="VD: Làm sao phát triển thành viên mới?" required></textarea>
+                                    <div id="mentorResult" class="card" style="background:var(--bg-soft); display:none;">
+                                        <h3>📋 Lộ trình & Khuyến nghị</h3>
+                                        <div id="mentorContent" style="margin-top:16px; color:var(--text-soft); line-height:1.8;"></div>
                                     </div>
-                                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-wand-magic-sparkles"></i> Nhận tư vấn</button>
-                                </form>
+                                </div>
                             </div>
-                            <div id="mentorResult" class="card" style="background:var(--bg-soft); display:none;">
-                                <h3>Lời tư vấn</h3>
-                                <div id="mentorContent" style="margin-top:16px; color:var(--text-soft); line-height:1.8;"></div>
+
+                            <!-- TAB 2: STRATEGY -->
+                            <div class="tab-content" data-tab="strategy" style="display:none;">
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+                                    <div class="card">
+                                        <h3><i class="fa-solid fa-chess" style="color:var(--secondary)"></i> Phát triển Chiến lược</h3>
+                                        <form id="strategyForm" style="display:flex; flex-direction:column; gap:16px; margin-top:16px;">
+                                            <div>
+                                                <label class="form-label">Chọn CLB cần chẩn đoán</label>
+                                                <select id="strategyClubId" class="form-select" required>
+                                                    <option value="">-- Chọn CLB --</option>
+                                                    ${clubs.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+                                                </select>
+                                            </div>
+                                            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-chess"></i> Chẩn đoán & chiến lược</button>
+                                        </form>
+                                    </div>
+                                    <div id="strategyResult" class="card" style="background:var(--bg-soft); display:none;">
+                                        <h3>📊 Chiến lược AI</h3>
+                                        <div id="strategyContent" style="margin-top:16px; color:var(--text-soft); line-height:1.8;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- TAB 3: EVENT -->
+                            <div class="tab-content" data-tab="event" style="display:none;">
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+                                    <div class="card">
+                                        <h3><i class="fa-solid fa-calendar-check" style="color:var(--warning)"></i> Lên kế hoạch Sự kiện</h3>
+                                        <form id="eventForm" style="display:flex; flex-direction:column; gap:16px; margin-top:16px;">
+                                            <div>
+                                                <label class="form-label">Tên sự kiện</label>
+                                                <input type="text" id="eventTitle" class="form-input" placeholder="VD: AI Hackathon 2026" required>
+                                            </div>
+                                            <div>
+                                                <label class="form-label">Ý tưởng / Concept</label>
+                                                <textarea id="eventConcept" class="form-textarea" placeholder="Mô tả ý tưởng sự kiện..." required></textarea>
+                                            </div>
+                                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                                                <div>
+                                                    <label class="form-label">Số người dự kiến</label>
+                                                    <input type="number" id="eventAttendees" class="form-input" value="100" min="1">
+                                                </div>
+                                                <div>
+                                                    <label class="form-label">Ngân sách (VNĐ)</label>
+                                                    <input type="number" id="eventBudget" class="form-input" value="5000000" min="0">
+                                                </div>
+                                            </div>
+                                            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-calendar-check"></i> Thiết kế kịch bản</button>
+                                        </form>
+                                    </div>
+                                    <div id="eventResult" class="card" style="background:var(--bg-soft); display:none;">
+                                        <h3>🎬 Kế hoạch & Timeline</h3>
+                                        <div id="eventContent" style="margin-top:16px; color:var(--text-soft); line-height:1.8;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- TAB 4: MEDIA -->
+                            <div class="tab-content" data-tab="media" style="display:none;">
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+                                    <div class="card">
+                                        <h3><i class="fa-solid fa-image" style="color:var(--accent)"></i> Tạo Nội dung Truyền thông</h3>
+                                        <form id="mediaForm" style="display:flex; flex-direction:column; gap:16px; margin-top:16px;">
+                                            <div>
+                                                <label class="form-label">Tiêu đề nội dung</label>
+                                                <input type="text" id="mediaTitle" class="form-input" placeholder="VD: Tuyển quân CLB Lập trình 2026" required>
+                                            </div>
+                                            <div>
+                                                <label class="form-label">Chi tiết / Chủ đề</label>
+                                                <textarea id="mediaTopics" class="form-textarea" placeholder="VD: Chào đón sinh viên đam mê code, tham gia hackathon..." required></textarea>
+                                            </div>
+                                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                                                <div>
+                                                    <label class="form-label">Đối tượng</label>
+                                                    <select id="mediaAudience" class="form-select">
+                                                        <option value="Sinh viên toàn trường">Sinh viên toàn trường</option>
+                                                        <option value="Tân sinh viên">Tân sinh viên</option>
+                                                        <option value="Thành viên CLB">Thành viên CLB</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label class="form-label">Giọng văn</label>
+                                                    <select id="mediaTone" class="form-select">
+                                                        <option value="genz_energetic">GenZ năng động</option>
+                                                        <option value="formal_academic">Trang trọng / học thuật</option>
+                                                        <option value="inspiring">Truyền cảm hứng</option>
+                                                        <option value="exciting">Hào hứng (FOMO)</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-wand-magic-sparkles"></i> Tạo Media Kit</button>
+                                        </form>
+                                    </div>
+                                    <div id="mediaResult" class="card" style="background:var(--bg-soft); display:none;">
+                                        <h3>📣 Media Kit</h3>
+                                        <div id="mediaContent" style="margin-top:16px; color:var(--text-soft); line-height:1.8;"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- TAB 2: STRATEGY -->
-                    <div class="tab-content" data-tab="strategy" style="display:none;">
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
-                            <div class="card">
-                                <h3>Phát triển Chiến lược</h3>
-                                <form id="strategyForm" style="display:flex; flex-direction:column; gap:16px; margin-top:16px;">
-                                    <div>
-                                        <label class="form-label">CLB của bạn</label>
-                                        <select id="strategyClubId" class="form-select" required>
-                                            <option value="">-- Chọn CLB --</option>
-                                            ${clubs.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="form-label">Mục tiêu (3-6 tháng)</label>
-                                        <textarea id="strategyGoal" class="form-textarea" placeholder="VD: Tăng thành viên từ 20 lên 50, tổ chức 4 sự kiện..." required></textarea>
-                                    </div>
-                                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-chess"></i> Tạo chiến lược</button>
-                                </form>
-                            </div>
-                            <div id="strategyResult" class="card" style="background:var(--bg-soft); display:none;">
-                                <h3>Chiến lược AI</h3>
-                                <div id="strategyContent" style="margin-top:16px; color:var(--text-soft); line-height:1.8;"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TAB 3: EVENT -->
-                    <div class="tab-content" data-tab="event" style="display:none;">
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
-                            <div class="card">
-                                <h3>Lên kế hoạch Sự kiện</h3>
-                                <form id="eventForm" style="display:flex; flex-direction:column; gap:16px; margin-top:16px;">
-                                    <div>
-                                        <label class="form-label">CLB</label>
-                                        <select id="eventClubId" class="form-select" required>
-                                            <option value="">-- Chọn CLB --</option>
-                                            ${clubs.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="form-label">Loại sự kiện</label>
-                                        <select id="eventType" class="form-select" required>
-                                            <option value="">-- Chọn loại --</option>
-                                            <option value="workshop">Workshop</option>
-                                            <option value="seminar">Seminar</option>
-                                            <option value="social">Social</option>
-                                            <option value="competition">Cuộc thi</option>
-                                            <option value="training">Đào tạo</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="form-label">Mô tả sự kiện</label>
-                                        <textarea id="eventDesc" class="form-textarea" placeholder="Mô tả chi tiết sự kiện bạn muốn tổ chức..." required></textarea>
-                                    </div>
-                                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-calendar-check"></i> Lên kế hoạch</button>
-                                </form>
-                            </div>
-                            <div id="eventResult" class="card" style="background:var(--bg-soft); display:none;">
-                                <h3>Kế hoạch sự kiện</h3>
-                                <div id="eventContent" style="margin-top:16px; color:var(--text-soft); line-height:1.8;"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TAB 4: MEDIA -->
-                    <div class="tab-content" data-tab="media" style="display:none;">
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
-                            <div class="card">
-                                <h3>Tạo Nội dung Truyền thông</h3>
-                                <form id="mediaForm" style="display:flex; flex-direction:column; gap:16px; margin-top:16px;">
-                                    <div>
-                                        <label class="form-label">CLB</label>
-                                        <select id="mediaClubId" class="form-select" required>
-                                            <option value="">-- Chọn CLB --</option>
-                                            ${clubs.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="form-label">Loại nội dung</label>
-                                        <select id="mediaType" class="form-select" required>
-                                            <option value="">-- Chọn loại --</option>
-                                            <option value="post">Post mạng xã hội</option>
-                                            <option value="story">Story</option>
-                                            <option value="newsletter">Newsletter</option>
-                                            <option value="announcement">Thông báo</option>
-                                            <option value="guide">Hướng dẫn</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="form-label">Chủ đề nội dung</label>
-                                        <textarea id="mediaTopics" class="form-textarea" placeholder="VD: Tuyên bố tuyển thành viên mới..." required></textarea>
-                                    </div>
-                                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-wand-magic-sparkles"></i> Tạo nội dung</button>
-                                </form>
-                            </div>
-                            <div id="mediaResult" class="card" style="background:var(--bg-soft); display:none;">
-                                <h3>Nội dung AI</h3>
-                                <div id="mediaContent" style="margin-top:16px; color:var(--text-soft); line-height:1.8;"></div>
-                            </div>
+                        <!-- Shared Realtime Thought Visualizer -->
+                        <div class="card" style="position:sticky; top:24px; height:fit-content;">
+                            <h3 style="font-size:16px; margin-bottom:4px; display:flex; align-items:center; gap:8px;">
+                                <i class="fa-solid fa-brain"></i> Bộ não AI
+                            </h3>
+                            <p style="font-size:12px; color:var(--text-mute); margin-bottom:12px;">Chuyên gia đang suy luận theo thời gian thực</p>
+                            <div id="studioThoughts" style="max-height:520px; overflow-y:auto;"></div>
                         </div>
                     </div>
                 </div>
             </section>
         `;
+
+        const panel = createThoughtPanel(main.querySelector('#studioThoughts'));
 
         // Tab switching
         main.querySelectorAll('#studioTabs .tab').forEach(tab => {
@@ -272,110 +303,112 @@ const AIPages = {
             });
         });
 
-        // Mentor form
-        main.querySelector('#mentorForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const clubId = main.querySelector('#mentorClubId').value;
-            const topic = main.querySelector('#mentorTopic').value;
-            const resultDiv = main.querySelector('#mentorResult');
-            const contentDiv = main.querySelector('#mentorContent');
-
-            if (!clubId) {
-                contentDiv.innerHTML = `<p style="color:var(--danger);">Vui lòng chọn CLB</p>`;
-                resultDiv.style.display = 'block';
-                return;
-            }
+        // Shared handler skeleton
+        const runAgent = async (agent, payload, resultDiv, contentDiv) => {
+            resultDiv.style.display = 'block';
+            contentDiv.innerHTML = '<div class="spinner" style="margin:20px auto;"></div>';
+            panel.clear();
+            panel.loading(true);
 
             try {
-                contentDiv.innerHTML = '<div class="spinner" style="margin:20px auto;"></div>';
-                resultDiv.style.display = 'block';
-
-                const data = await API.aiMentorChat(topic, clubId);
-                const response = data.response || data.content || data.message || '';
-                contentDiv.innerHTML = `<p>${response.replace(/\n/g, '<br>')}</p>`;
+                const stream = await API.aiAgentStream(agent, payload);
+                await StreamingHandler.handleStream(stream, {
+                    onThought: (content, data, title) => {
+                        panel.loading(false);
+                        panel.add({
+                            stepName: data.step_name || data.type || ('s' + Math.floor(Math.random() * 1000)),
+                            title: title,
+                            content: content || '',
+                            status: data.status || 'completed'
+                        });
+                    },
+                    onResult: (result) => {
+                        panel.loading(false);
+                        renderAgentResult(contentDiv, result);
+                        if (agent === 'media') AIPages._postMediaRender(contentDiv);
+                    },
+                    onError: (err) => {
+                        panel.loading(false);
+                        contentDiv.innerHTML = `<p style="color:var(--danger);">❌ ${escapeHtml(err)}</p>`;
+                        panel.add({ title: '⚠️ Lỗi', content: err, status: 'error' });
+                    },
+                    onComplete: () => panel.loading(false)
+                });
             } catch (err) {
-                contentDiv.innerHTML = `<p style="color:var(--danger);">❌ ${err.message}</p>`;
+                panel.loading(false);
+                contentDiv.innerHTML = `<p style="color:var(--danger);">❌ ${escapeHtml(err.message)}</p>`;
             }
+        };
+
+        // Mentor
+        main.querySelector('#mentorForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const role = main.querySelector('#mentorRole').value.trim() || 'Phát triển toàn diện';
+            runAgent('mentor', { target_role: role }, main.querySelector('#mentorResult'), main.querySelector('#mentorContent'));
         });
 
-        // Strategy form
-        main.querySelector('#strategyForm').addEventListener('submit', async (e) => {
+        // Strategy
+        main.querySelector('#strategyForm').addEventListener('submit', (e) => {
             e.preventDefault();
             const clubId = main.querySelector('#strategyClubId').value;
-            const goal = main.querySelector('#strategyGoal').value;
-            const resultDiv = main.querySelector('#strategyResult');
-            const contentDiv = main.querySelector('#strategyContent');
-
             if (!clubId) {
-                contentDiv.innerHTML = `<p style="color:var(--danger);">Vui lòng chọn CLB</p>`;
-                resultDiv.style.display = 'block';
+                showToast('Vui lòng chọn CLB', 'error');
                 return;
             }
-
-            try {
-                contentDiv.innerHTML = '<div class="spinner" style="margin:20px auto;"></div>';
-                resultDiv.style.display = 'block';
-
-                const data = await API.aiStrategyAdvice({ club_id: clubId, goals: goal });
-                const strategy = data.strategy || data.content || data.message || '';
-                contentDiv.innerHTML = `<p>${strategy.replace(/\n/g, '<br>')}</p>`;
-            } catch (err) {
-                contentDiv.innerHTML = `<p style="color:var(--danger);">❌ ${err.message}</p>`;
-            }
+            runAgent('strategy', { club_id: parseInt(clubId) }, main.querySelector('#strategyResult'), main.querySelector('#strategyContent'));
         });
 
-        // Event form
-        main.querySelector('#eventForm').addEventListener('submit', async (e) => {
+        // Event
+        main.querySelector('#eventForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            const clubId = main.querySelector('#eventClubId').value;
-            const eventType = main.querySelector('#eventType').value;
-            const eventDesc = main.querySelector('#eventDesc').value;
-            const resultDiv = main.querySelector('#eventResult');
-            const contentDiv = main.querySelector('#eventContent');
-
-            if (!clubId) {
-                contentDiv.innerHTML = `<p style="color:var(--danger);">Vui lòng chọn CLB</p>`;
-                resultDiv.style.display = 'block';
+            const title = main.querySelector('#eventTitle').value.trim();
+            const concept = main.querySelector('#eventConcept').value.trim();
+            if (!title || !concept) {
+                showToast('Vui lòng nhập tên và ý tưởng sự kiện', 'error');
                 return;
             }
-
-            try {
-                contentDiv.innerHTML = '<div class="spinner" style="margin:20px auto;"></div>';
-                resultDiv.style.display = 'block';
-
-                const data = await API.aiEventPlanning(clubId, { type: eventType, description: eventDesc });
-                const plan = data.plan || data.content || data.message || '';
-                contentDiv.innerHTML = `<p>${plan.replace(/\n/g, '<br>')}</p>`;
-            } catch (err) {
-                contentDiv.innerHTML = `<p style="color:var(--danger);">❌ ${err.message}</p>`;
-            }
+            runAgent('event', {
+                title,
+                concept,
+                expected_attendees: parseInt(main.querySelector('#eventAttendees').value) || 100,
+                estimated_budget_vnd: parseInt(main.querySelector('#eventBudget').value) || 5000000
+            }, main.querySelector('#eventResult'), main.querySelector('#eventContent'));
         });
 
-        // Media form
-        main.querySelector('#mediaForm').addEventListener('submit', async (e) => {
+        // Media
+        main.querySelector('#mediaForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            const clubId = main.querySelector('#mediaClubId').value;
-            const mediaType = main.querySelector('#mediaType').value;
-            const topics = main.querySelector('#mediaTopics').value;
-            const resultDiv = main.querySelector('#mediaResult');
-            const contentDiv = main.querySelector('#mediaContent');
-
-            if (!clubId) {
-                contentDiv.innerHTML = `<p style="color:var(--danger);">Vui lòng chọn CLB</p>`;
-                resultDiv.style.display = 'block';
+            const title = main.querySelector('#mediaTitle').value.trim();
+            const topics = main.querySelector('#mediaTopics').value.trim();
+            if (!title) {
+                showToast('Vui lòng nhập tiêu đề nội dung', 'error');
                 return;
             }
+            runAgent('media', {
+                title,
+                topic_details: topics,
+                target_audience: main.querySelector('#mediaAudience').value,
+                tone: main.querySelector('#mediaTone').value
+            }, main.querySelector('#mediaResult'), main.querySelector('#mediaContent'));
+        });
+    },
 
-            try {
-                contentDiv.innerHTML = '<div class="spinner" style="margin:20px auto;"></div>';
-                resultDiv.style.display = 'block';
-
-                const data = await API.aiMediaContent(clubId, mediaType);
-                const content = data.content || data.message || '';
-                contentDiv.innerHTML = `<p>${content.replace(/\n/g, '<br>')}</p>`;
-            } catch (err) {
-                contentDiv.innerHTML = `<p style="color:var(--danger);">❌ ${err.message}</p>`;
-            }
+    // ============= MEDIA RESULT POST-RENDER (Copy Buttons) =============
+    _postMediaRender(container) {
+        ['facebook_post', 'formal_email', 'mc_opening_script', 'slogans', 'visual_concept_brief'].forEach(key => {
+            const block = container.querySelector(`[data-key="${key}"]`);
+            if (!block) return;
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-secondary btn-sm';
+            btn.style.cssText = 'margin-top:8px;font-size:12px;padding:4px 10px;';
+            btn.innerHTML = '<i class="fa-solid fa-copy"></i> Sao chép';
+            btn.addEventListener('click', async () => {
+                try {
+                    await navigator.clipboard.writeText(block.dataset.clip || block.innerText);
+                    showToast('Đã sao chép!', 'success');
+                } catch (err) { showToast('Không thể sao chép', 'error'); }
+            });
+            block.appendChild(btn);
         });
     },
 
@@ -450,11 +483,28 @@ const AIPages = {
                                         <div style="padding:16px; background:var(--bg-soft); border-radius:var(--radius);">
                                             <h4 style="font-size:14px; font-weight:600; margin-bottom:8px;">${t.name}</h4>
                                             <p style="font-size:13px; color:var(--text-soft);">${t.description}</p>
-                                            <div style="margin-top:12px; height:60px; background:white; border-radius:4px;"></div>
                                         </div>
                                     `).join('')}
                                 </div>
                             ` : '<p style="color:var(--text-mute);">Chưa có dữ liệu xu hướng</p>'}
+                        </div>
+
+                        <!-- Recommendations -->
+                        <div class="card" style="margin-top:24px;">
+                            <h3 style="display:flex; align-items:center; gap:8px; margin-bottom:16px;">
+                                <i class="fa-solid fa-lightbulb"></i> Gợi ý cho bạn
+                            </h3>
+                            ${recommendations && recommendations.clubs?.length ? `
+                                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:16px;">
+                                    ${recommendations.clubs.map(r => `
+                                        <div style="padding:16px; background:var(--bg-soft); border-radius:var(--radius);">
+                                            <h4 style="font-size:14px; font-weight:600; margin-bottom:8px;">${r.club?.name || 'CLB'}</h4>
+                                            <p style="font-size:13px; color:var(--text-soft);">${r.reason || ''}</p>
+                                            <span class="badge badge-success" style="margin-top:8px;">Match ${Math.round((r.score || 0) * 100)}%</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : '<p style="color:var(--text-mute);">Chưa có gợi ý</p>'}
                         </div>
                     </div>
                 </section>
@@ -466,7 +516,7 @@ const AIPages = {
                         <div class="card" style="text-align:center; padding:60px 20px;">
                             <i class="fa-solid fa-exclamation-circle" style="font-size:48px; color:var(--danger); margin-bottom:16px;"></i>
                             <h3>Lỗi tải dữ liệu</h3>
-                            <p style="color:var(--text-mute);">${err.message}</p>
+                            <p style="color:var(--text-mute);">${escapeHtml(err.message)}</p>
                         </div>
                     </div>
                 </section>
@@ -561,7 +611,7 @@ const AIPages = {
                         <div class="card" style="text-align:center; padding:60px 20px;">
                             <i class="fa-solid fa-exclamation-circle" style="font-size:48px; color:var(--danger); margin-bottom:16px;"></i>
                             <h3>Lỗi tải xếp hạng</h3>
-                            <p style="color:var(--text-mute);">${err.message}</p>
+                            <p style="color:var(--text-mute);">${escapeHtml(err.message)}</p>
                         </div>
                     </div>
                 </section>
@@ -611,6 +661,6 @@ function updateAIMessage(container, content) {
 
 function escapeHtml(text) {
     const div = document.createElement('div');
-    div.textContent = text;
+    div.textContent = text ?? '';
     return div.innerHTML;
 }

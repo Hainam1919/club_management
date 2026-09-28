@@ -21,8 +21,18 @@ from app.ai.agents.strategist_agent import strategist_agent
 from app.ai.agents.event_architect_agent import event_architect_agent
 from app.ai.agents.media_agent import media_agent
 
+from dotenv import load_dotenv
+load_dotenv()
+
 OLLAMA_BASE_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 DEFAULT_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
+FALLBACK_MODEL = os.getenv("OLLAMA_MODEL_FALLBACK", "llama3.2:3b")
+# Ollama mặc định chỉ 4096 token -> prompt dài sẽ bị cắt ngang, model "mất thông tin" và trả lời sai
+NUM_CTX = int(os.getenv("OLLAMA_NUM_CTX", "8192"))
+
+
+def _ollama_options(temperature: float, max_tokens: int) -> Dict[str, Any]:
+    return {"temperature": temperature, "num_predict": max_tokens, "num_ctx": NUM_CTX}
 
 # Cloud API Keys
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
@@ -95,19 +105,31 @@ async def ai_orchestrator(
         "model": model or DEFAULT_MODEL,
         "prompt": prompt,
         "stream": False,
-        "options": {"temperature": temperature, "num_predict": max_tokens}
+        "options": _ollama_options(temperature, max_tokens),
+        "keep_alive": os.getenv("OLLAMA_KEEP_ALIVE", "72h")
     }
     if system:
         payload["system"] = system
 
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            r = await client.post(f"{OLLAMA_BASE_URL}/api/generate", json=payload)
-            if r.status_code == 200:
-                return r.json().get("response", "").strip()
-    except Exception as e:
-        print(f"[AI Service] Ollama error: {e}")
+    models_to_try = list(dict.fromkeys([model or DEFAULT_MODEL, FALLBACK_MODEL]))
+    last_error = ""
+    for m in models_to_try:
+        payload["model"] = m
+        try:
+            async with httpx.AsyncClient(timeout=180.0) as client:
+                r = await client.post(f"{OLLAMA_BASE_URL}/api/generate", json=payload)
+                if r.status_code == 200:
+                    return r.json().get("response", "").strip()
+                if r.status_code == 404:
+                    last_error = f"model '{m}' not found"
+                    continue
+                return ""
+        except Exception as e:
+            last_error = str(e)
+            print(f"[AI Service] Ollama error: {e}")
+            continue
 
+    print(f"[AI Service] Ollama failed: {last_error}")
     return ""
 
 
@@ -126,26 +148,32 @@ async def ai_orchestrator_stream(
         "model": model or DEFAULT_MODEL,
         "prompt": prompt,
         "stream": True,
-        "options": {"temperature": temperature, "num_predict": max_tokens}
+        "options": _ollama_options(temperature, max_tokens),
+        "keep_alive": os.getenv("OLLAMA_KEEP_ALIVE", "72h")
     }
     if system:
         payload["system"] = system
 
-    try:
-        async with httpx.AsyncClient(timeout=45.0) as client:
-            async with client.stream("POST", f"{OLLAMA_BASE_URL}/api/generate", json=payload) as r:
-                if r.status_code == 200:
-                    async for line in r.aiter_lines():
-                        if line:
-                            chunk = json.loads(line)
-                            token = chunk.get("response", "")
-                            if token:
-                                yield token
-                            if chunk.get("done"):
-                                break
-                    return
-    except Exception:
-        pass
+    models_to_try = list(dict.fromkeys([model or DEFAULT_MODEL, FALLBACK_MODEL]))
+    for m in models_to_try:
+        payload["model"] = m
+        try:
+            async with httpx.AsyncClient(timeout=300.0) as client:
+                async with client.stream("POST", f"{OLLAMA_BASE_URL}/api/generate", json=payload) as r:
+                    if r.status_code == 200:
+                        async for line in r.aiter_lines():
+                            if line:
+                                chunk = json.loads(line)
+                                token = chunk.get("response", "")
+                                if token:
+                                    yield token
+                                if chunk.get("done"):
+                                    return
+                        return
+                    if r.status_code == 404:
+                        continue
+        except Exception:
+            break
 
     # Fallback to non-streaming response if stream fails
     fallback_res = await ai_orchestrator(prompt, provider, model, system, temperature, max_tokens)
@@ -186,35 +214,90 @@ async def ai_agent_chat_stream(
     db: Optional[Session] = None
 ) -> AsyncGenerator[str, None]:
     """
-    Agentic AI Chat Streaming hỗ trợ xuất tiến trình tư duy (Thinking Steps + Tokens).
+    Agentic AI Chat Streaming thực sự: token hiện dần theo thời gian thực,
+    kèm tiến trình tư duy (Thought Steps) để UI không bị "treo".
+    Delegate trực tiếp tới ThoughtEngine.stream_reasoning (Cognitive Streaming Pipeline).
     """
-    result = await thought_engine.think_and_solve(
+    async for event in thought_engine.stream_reasoning(
         user_message=user_message,
         history=history,
         context=context,
         user_profile=user_profile,
         db=db,
-        orchestrator_fn=ai_orchestrator
-    )
+        system_override=system_override,
+        orchestrator_stream_fn=ai_orchestrator_stream
+    ):
+        yield json.dumps(event)
 
-    # 1. Phát các bước suy luận (Thought Steps)
-    steps = result.get("steps", [])
-    for step in steps:
-        yield json.dumps({
-            "type": "thought_step",
-            "step_name": step.get("step_name"),
-            "title": step.get("title"),
-            "content": step.get("content"),
-            "metadata": step.get("metadata", {})
-        })
 
-    # 2. Phát nội dung phản hồi (Tokens)
-    reply = result.get("reply", "")
-    # Giả lập stream từng khối từ để UI hiển thị mượt mà
-    words = reply.split(" ")
-    for idx, word in enumerate(words):
-        chunk = word + (" " if idx < len(words) - 1 else "")
-        yield json.dumps({"type": "token", "content": chunk})
+async def get_ai_model_info() -> Dict[str, Any]:
+    """
+    Lấy thông tin mô hình AI hiệu dụng: Ollama online hay không, model mặc định,
+    danh sách model đã tải, engine version.
+    """
+    available = await check_ollama()
+    loaded_models: List[str] = []
+    if available:
+        try:
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                r = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
+                if r.status_code == 200:
+                    loaded_models = [m.get("name", "") for m in r.json().get("models", [])][:8]
+        except Exception:
+            pass
+
+    return {
+        "available": available,
+        "engine": "Cognitive Thought Engine v2.6",
+        "provider": "ollama" if available else "expert-rule-fallback",
+        "default_model": DEFAULT_MODEL,
+        "loaded_models": loaded_models,
+        "features": [
+            "Streaming Chain-of-Thought Realtime",
+            "4-Stage Cognitive Loop + Tool Calling",
+            "4 Specialized Agents (Mentor / Strategist / Event / Media)",
+            "Predictive Insights & Analytics"
+        ]
+    }
+
+
+async def agent_thought_stream(
+    agent_kind: str,
+    title: str,
+    plan_lines: Optional[Dict[str, str]] = None,
+    run_agent_fn=None
+) -> AsyncGenerator[Dict, None]:
+    """
+    Streaming wrapper cho 4 AI Pro Agents:
+    - Phát các bước suy luận định hướng (thought_step) theo thời gian thực.
+    - Chạy agent thật, sau đó emit kết quả JSON dưới sự kiện "result".
+    - Kết thúc bằng sự kiện "done".
+    """
+    plan_lines = plan_lines or {}
+    steps = [
+        ("stage_1", "🎯 Phân tích yêu cầu & bối cảnh",
+         f"Nhận diện chủ đề '{title}' và thông tin đầu vào để lập kế hoạch."),
+        ("stage_2", "🔍 Lập bản đồ dữ liệu & công cụ",
+         plan_lines.get("retrieve", "Đối chiếu dữ liệu hệ thống CLB, thành viên và lịch sử hoạt động.")),
+        ("stage_3", "⚖️ Gợi ý chiến lược & kiểm tra rủi ro",
+         plan_lines.get("critique", "Đánh giá phương án khả thi, rủi ro và chọn hướng tối ưu.")),
+        ("stage_4", "🚀 Tạo kết quả hoàn chỉnh",
+         plan_lines.get("synthesize", "Đúc kết thành kế hoạch có cấu trúc, sẵn sàng sử dụng.")),
+    ]
+
+    for step_name, step_title, content in steps:
+        yield {
+            "type": "thought_step", "status": "running",
+            "step_name": step_name, "title": step_title, "content": content
+        }
+
+    try:
+        result = await run_agent_fn() if run_agent_fn else {}
+        yield {"type": "result", "agent": agent_kind, "content": result}
+    except Exception as e:
+        yield {"type": "error", "content": f"Lỗi {agent_kind}: {str(e)}"}
+    finally:
+        yield {"type": "done", "agent": agent_kind}
 
 
 # ============= DOMAIN SPECIFIC AI CAPABILITIES =============

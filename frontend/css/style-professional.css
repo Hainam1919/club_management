@@ -125,6 +125,96 @@ h1, h2, h3, h4, h5, h6 { letter-spacing: -0.02em; }
     box-shadow: var(--shadow-md);
     border-color: var(--border);
 }
+
+/* ---------- Club card FLAT (không emoji, không banner gradient) ---------- */
+.club-card { border-radius: var(--radius); }
+.club-card .club-banner { display: none; }
+.club-card .club-accent { height: 5px; background: #4f46e5; }
+.club-card .club-accent.cat-2 { background: #16a34a; }
+.club-card .club-accent.cat-3 { background: #db2777; }
+.club-card .club-accent.cat-4 { background: #ea580c; }
+.club-cat { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.club-cat-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    font-size: 15px;
+    background: #eef2ff;
+    color: #4f46e5;
+    flex-shrink: 0;
+}
+.club-cat-icon.cat-2 { background: #ecfdf5; color: #16a34a; }
+.club-cat-icon.cat-3 { background: #fdf2f8; color: #db2777; }
+.club-cat-icon.cat-4 { background: #fff7ed; color: #ea580c; }
+.club-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.club-ai {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--primary);
+    border: 1px solid var(--primary-light);
+    background: var(--primary-50);
+    padding: 3px 8px;
+    border-radius: 6px;
+}
+.club-category {
+    background: transparent;
+    color: var(--primary);
+    padding: 0;
+    border-radius: 0;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    margin-bottom: 0;
+}
+.club-stats {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 11px 0;
+    border-top: 1px solid var(--border-soft);
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 12px;
+    color: var(--text-mute);
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+.club-stat { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.club-stat i { color: var(--primary); font-size: 12px; }
+.club-stat-room { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.club-category::before { content: ""; display: none; }
+.club-name { font-size: 17px; }
+.club-card-body { padding: 16px 18px 14px; }
+.club-view {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-soft);
+    transition: color 0.15s ease, transform 0.15s ease;
+}
+.club-card:hover .club-view { color: var(--primary); }
+.club-card:hover .club-view i { transform: translateX(2px); }
+.club-view i { transition: transform 0.15s ease; }
+.club-ai-tag { display: none; }
+
+/* Filter pills: sắc nét, phẳng */
+.filter-pill {
+    border-radius: var(--radius-sm);
+} 
+.filter-pill.active,
+.filter-pill[data-filter].active {
+    background: var(--primary);
+    background-image: none;
+    color: #fff;
+    box-shadow: none;
+}
 .event-card:hover, .member-card:hover, .post-card:hover {
     box-shadow: var(--shadow-md);
     transform: translateY(-3px);

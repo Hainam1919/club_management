@@ -17,9 +17,28 @@ from app.utils import award_points, create_notification, check_achievements, log
 router = APIRouter(prefix="/api/events", tags=["events"])
 
 
+def registered_event_ids(db: Session, user_id: int) -> set:
+    """Tập ID sự kiện mà user đã đăng ký"""
+    rows = db.query(EventRegistration.event_id).filter(
+        EventRegistration.user_id == user_id
+    ).all()
+    return {r[0] for r in rows}
+
+
+def serialize_events(events: List[Event], reg_ids: set) -> List[EventOut]:
+    """Chuyển Event -> EventOut kèm cờ is_registered"""
+    result = []
+    for event in events:
+        item = EventOut.model_validate(event)
+        item.is_registered = event.id in reg_ids
+        result.append(item)
+    return result
+
+
 @router.get("", response_model=List[EventOut])
 def list_events(
     db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
     q: Optional[str] = None,
     club_id: Optional[int] = None,
     status_filter: Optional[str] = None,
@@ -42,15 +61,21 @@ def list_events(
         query = query.filter(Event.start_time >= datetime.utcnow())
 
     events = query.order_by(Event.start_time.desc()).offset(skip).limit(limit).all()
-    return events
+    reg_ids = registered_event_ids(db, current_user.id) if current_user else set()
+    return serialize_events(events, reg_ids)
 
 
 @router.get("/upcoming", response_model=List[EventOut])
-def upcoming_events(db: Session = Depends(get_db), limit: int = 10):
+def upcoming_events(
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
+    limit: int = 10
+):
     """Sự kiện sắp tới"""
     events = db.query(Event).filter(Event.start_time >= datetime.utcnow())\
         .order_by(Event.start_time.asc()).limit(limit).all()
-    return events
+    reg_ids = registered_event_ids(db, current_user.id) if current_user else set()
+    return serialize_events(events, reg_ids)
 
 
 @router.get("/{event_id}")
@@ -205,8 +230,9 @@ def register_event(
 
     reg = EventRegistration(event_id=event_id, user_id=current_user.id)
     db.add(reg)
-    event.current_participants += 1
+    event.current_participants = (event.current_participants or 0) + 1
     db.commit()
+    db.refresh(event)
 
     # Cộng điểm & tạo notification
     points_result = award_points(db, current_user.id, "register_event")
@@ -223,6 +249,9 @@ def register_event(
     return {
         "message": "Đăng ký thành công",
         "event_title": event.title,
+        "is_registered": True,
+        "current_participants": event.current_participants,
+        "max_participants": event.max_participants,
         "points_earned": points_result["points_earned"],
         "achievements_unlocked": achievements
     }
@@ -245,11 +274,17 @@ def cancel_registration(
 
     event = db.query(Event).filter(Event.id == event_id).first()
     db.delete(reg)
-    if event and event.current_participants > 0:
+    if event and (event.current_participants or 0) > 0:
         event.current_participants -= 1
     db.commit()
+    if event:
+        db.refresh(event)
 
-    return {"message": "Đã hủy đăng ký"}
+    return {
+        "message": "Đã hủy đăng ký",
+        "is_registered": False,
+        "current_participants": event.current_participants if event else 0
+    }
 
 
 @router.post("/{event_id}/feedback")
@@ -285,7 +320,84 @@ async def submit_feedback(
 
 
 @router.get("/{event_id}/registrations", response_model=List[EventRegistrationOut])
-def list_registrations(event_id: int, db: Session = Depends(get_db)):
-    """Danh sách người đăng ký"""
-    regs = db.query(EventRegistration).filter(EventRegistration.event_id == event_id).all()
-    return regs
+def list_registrations(
+    event_id: int,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
+    limit: int = 200
+):
+    """Danh sách người đã đăng ký (kèm thông tin user, có cờ is_me)"""
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Không tìm thấy sự kiện")
+
+    regs = db.query(EventRegistration, User).join(User, User.id == EventRegistration.user_id)\
+        .filter(EventRegistration.event_id == event_id)\
+        .order_by(EventRegistration.registered_at.asc()).limit(limit).all()
+    me_id = current_user.id if current_user else None
+
+    return [
+        EventRegistrationOut(
+            id=r.id,
+            event_id=r.event_id,
+            user_id=u.id,
+            attended=bool(r.attended),
+            feedback=r.feedback,
+            rating=r.rating,
+            registered_at=r.registered_at,
+            full_name=u.full_name,
+            username=u.username,
+            avatar=u.avatar or (u.full_name or u.username or "?")[0].upper(),
+            faculty=u.faculty,
+            student_id=u.student_id,
+            class_name=u.class_name,
+            is_me=(me_id is not None and u.id == me_id)
+        )
+        for r, u in regs
+    ]
+
+
+@router.get("/{event_id}/participants")
+def get_event_participants(
+    event_id: int,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
+    limit: int = 60
+):
+    """Tóm tắt người đã đăng ký sự kiện (dùng cho UI danh sách người tham gia)"""
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Không tìm thấy sự kiện")
+
+    total = db.query(EventRegistration).filter(EventRegistration.event_id == event_id).count()
+    regs = db.query(EventRegistration, User).join(User, User.id == EventRegistration.user_id)\
+        .filter(EventRegistration.event_id == event_id)\
+        .order_by(EventRegistration.registered_at.desc()).limit(limit).all()
+    me_id = current_user.id if current_user else None
+
+    club = db.query(Club).filter(Club.id == event.club_id).first() if event.club_id else None
+
+    return {
+        "event_id": event.id,
+        "total": total,
+        "shown": len(regs),
+        "current_participants": event.current_participants or 0,
+        "max_participants": event.max_participants or 0,
+        "is_registered": any(u.id == me_id for _, u in regs) if me_id else False,
+        "club": {"id": club.id, "name": club.name, "logo": club.logo or ""} if club else None,
+        "participants": [
+            {
+                "user_id": u.id,
+                "username": u.username,
+                "full_name": u.full_name,
+                "avatar": u.avatar or (u.full_name or u.username or "?")[0].upper(),
+                "faculty": u.faculty,
+                "student_id": u.student_id,
+                "class_name": u.class_name,
+                "registered_at": r.registered_at.isoformat(),
+                "attended": bool(r.attended),
+                "is_me": (me_id is not None and u.id == me_id)
+            }
+            for r, u in regs
+        ]
+    }

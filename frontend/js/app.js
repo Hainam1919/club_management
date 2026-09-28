@@ -136,12 +136,19 @@ const App = {
 
     routeFromHash() {
         const hash = location.hash.replace('#', '') || 'home';
+        // navigate() tự đặt hash -> hashchange bắn lại navigate() không có
+        // params (mất id). Giữ guard cho tới khi hash thực sự khác để an toàn
+        // cả khi trình duyệt bắn nhiều sự kiện hashchange liên tiếp.
+        if (this._hashGuard === hash) return;
+        this._hashGuard = null;
         this.navigate(hash);
     },
 
     async navigate(page, params = {}) {
         this.currentPage = page;
+        this._hashGuard = page;
         location.hash = page;
+        document.body.classList.toggle('is-home', page === 'home');
         document.querySelectorAll('.nav-link').forEach(l => {
             l.classList.toggle('active', l.dataset.page === page);
         });
@@ -150,20 +157,24 @@ const App = {
         const main = document.getElementById('mainContent');
         // Modern skeleton loading
         main.innerHTML = `
-            <div class="loading stagger">
+            <div class="loading stagger page-skeleton">
                 <div class="skeleton skeleton-card" style="width:100%;max-width:1200px;margin:0 auto"></div>
                 <div class="skeleton skeleton-text" style="width:100%;max-width:1200px;margin:20px auto"></div>
                 <div class="skeleton skeleton-text" style="width:60% ;max-width:1200px;margin:0 auto"></div>
             </div>`;
 
-try {
-            // Add fade-in effect by wrapping the rendered content
-            const contentContainer = document.createElement('div');
-            contentContainer.className = 'animate-slide-up';
+        const skeleton = main.firstElementChild;
 
-            // Temporary render to a fragment or variable to avoid flicker
-            const tempDiv = document.createElement('div');
+        // Render vào cây DOM thật ngay từ đầu: các handler gắn bằng
+        // document.getElementById/querySelector trong Pages.* chỉ hoạt động
+        // khi phần tử đã nằm trong document (node rời sẽ không tìm thấy).
+        const contentContainer = document.createElement('div');
+        contentContainer.className = 'animate-slide-up';
+        const tempDiv = document.createElement('div');
+        contentContainer.appendChild(tempDiv);
+        main.appendChild(contentContainer);
 
+        try {
             switch (page) {
                 case 'home': await Pages.renderHome(tempDiv); break;
                 case 'clubs': await Pages.renderClubs(tempDiv, params); break;
@@ -200,11 +211,10 @@ try {
                 default: await Pages.renderHome(tempDiv);
             }
 
-            contentContainer.appendChild(tempDiv);
-            main.innerHTML = '';
-            main.appendChild(contentContainer);
+            skeleton?.remove();
         } catch (err) {
             console.error(err);
+            skeleton?.remove();
             main.innerHTML = `<div class="empty"><i class="fa-solid fa-triangle-exclamation"></i><h3>Lỗi</h3><p>${err.message}</p></div>`;
         }
         window.scrollTo(0, 0);

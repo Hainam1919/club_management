@@ -12,6 +12,7 @@ import hashlib
 import secrets
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 from typing import Optional, List
@@ -27,7 +28,8 @@ from app.security import require_user
 from app.utils import award_points, log_activity
 from app.ai_service import (
     ai_generate, ai_agent_chat, check_ollama,
-    mentor_agent, strategist_agent, event_architect_agent, media_agent
+    mentor_agent, strategist_agent, event_architect_agent, media_agent,
+    agent_thought_stream
 )
 
 router = APIRouter(prefix="/api/ai-pro", tags=["ai-pro"])
@@ -122,6 +124,140 @@ async def get_media_kit(
         tone=tone
     )
     return result
+
+
+# ============= 1B. 4 AGENTS - STREAMING REAL-TIME SSE (Thought Visualizer) =============
+
+def _sse(event: dict) -> str:
+    return f"data: {json.dumps(event, ensure_ascii=False, default=str)}\n\n"
+
+
+@router.post("/mentor-plan/stream")
+async def get_mentor_plan_stream(
+    payload: dict,
+    current_user: User = Depends(require_user),
+    db: Session = Depends(get_db)
+):
+    """SSE Streaming: Agent 1 Mentor - phát tiến trình tư duy realtime, kết quả qua sự kiện `result`."""
+    target_user_id = payload.get("user_id", current_user.id)
+    target_role = payload.get("target_role", "Phát triển toàn diện")
+
+    plan_lines = {
+        "retrieve": "Phân tích hồ sơ sinh viên (khoa, kỹ năng, sở thích) và danh sách CLB đang hoạt động.",
+        "critique": "Xây Skill Gap Matrix, tính Match Score từng CLB và đối chiếu với vai trò mục tiêu.",
+        "synthesize": "Chốt Lộ trình 6 tháng theo giai đoạn và lời khuyên mentorship cá nhân hóa."
+    }
+
+    async def run():
+        return await mentor_agent.analyze_and_plan(
+            user_id=target_user_id, target_role=target_role, db=db
+        )
+
+    async def gen():
+        async for ev in agent_thought_stream("mentor", f"Lộ trình {target_role}", plan_lines, run):
+            yield _sse(ev)
+        award_points(db, current_user.id, "ai_mentor_used", 10)
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+@router.post("/club-strategy/stream")
+async def get_club_strategy_stream(
+    payload: dict,
+    current_user: User = Depends(require_user),
+    db: Session = Depends(get_db)
+):
+    """SSE Streaming: Agent 2 Strategist - chẩn đoán CLB & đề xuất chiến lược tăng trưởng."""
+    club_id = payload.get("club_id")
+    if not club_id:
+        raise HTTPException(400, "Cần cung cấp club_id")
+
+    club = db.query(Club).filter(Club.id == club_id).first()
+    club_name = club.name if club else f"CLB #{club_id}"
+
+    plan_lines = {
+        "retrieve": f"Thu thập chỉ số vận hành CLB '{club_name}': thành viên, sự kiện, bài viết.",
+        "critique": "Tìm điểm nghẽn giữ chân thành viên, đánh giá rủi ro churn rate và nguồn lực.",
+        "synthesize": "Đóng gói chiến lược 3 giai đoạn: tuyển quân → kích hoạt tương tác → vận hành."
+    }
+
+    async def run():
+        return await strategist_agent.diagnose_and_strategize(club_id=club_id, db=db)
+
+    async def gen():
+        async for ev in agent_thought_stream("strategy", f"Chiến lược {club_name}", plan_lines, run):
+            yield _sse(ev)
+        award_points(db, current_user.id, "ai_strategy_used", 15)
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+@router.post("/event-blueprint/stream")
+async def get_event_blueprint_stream(
+    payload: dict,
+    current_user: User = Depends(require_user),
+    db: Session = Depends(get_db)
+):
+    """SSE Streaming: Agent 3 Event Architect - thiết kế kịch bản sự kiện 360 độ."""
+    title = payload.get("title", "").strip()
+    concept = payload.get("concept", "").strip()
+    club_id = payload.get("club_id")
+    attendees = payload.get("expected_attendees", 100)
+    budget = payload.get("estimated_budget_vnd", 5000000)
+
+    if not title or not concept:
+        raise HTTPException(400, "Cần nhập tiêu đề và ý tưởng sự kiện")
+
+    plan_lines = {
+        "retrieve": f"Phân tích concept '{concept}' cùng quy mô {attendees} người, ngân sách {budget:,} VNĐ.",
+        "critique": "Kiểm tra rủi ro trùng lịch, khả năng huy động nhân sự và tối ưu ngân sách.",
+        "synthesize": "Xây dựng timeline chi tiết, phân vai ban tổ chức và kịch bản truyền thông."
+    }
+
+    async def run():
+        return await event_architect_agent.design_event_blueprint(
+            title=title, concept=concept, club_id=club_id,
+            expected_attendees=attendees, estimated_budget_vnd=budget, db=db
+        )
+
+    async def gen():
+        async for ev in agent_thought_stream("event", f"Sự kiện: {title}", plan_lines, run):
+            yield _sse(ev)
+        award_points(db, current_user.id, "ai_event_blueprint", 15)
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+@router.post("/media-kit/stream")
+async def get_media_kit_stream(
+    payload: dict,
+    current_user: User = Depends(require_user)
+):
+    """SSE Streaming: Agent 4 Media - sinh Media Kit đa kênh với tiến trình suy luận."""
+    title = payload.get("title", "").strip()
+    details = payload.get("topic_details", "").strip()
+    audience = payload.get("target_audience", "Sinh viên toàn trường")
+    tone = payload.get("tone", "genz_energetic")
+
+    if not title:
+        raise HTTPException(400, "Cần nhập tiêu đề bài viết/sự kiện")
+
+    plan_lines = {
+        "retrieve": f"Xác định thông điệp '{title}' cho đối tượng '{audience}', tone '{tone}'.",
+        "critique": "Brainstorm khẩu hiệu, hook cuốn hút và biến tấu đa kênh (FB, Email, MC, Visual).",
+        "synthesize": "Đóng gói Media Kit hoàn chỉnh kèm hashtags và khung giờ vàng đăng bài."
+    }
+
+    async def run():
+        return await media_agent.create_multi_channel_content(
+            title=title, topic_details=details, target_audience=audience, tone=tone
+        )
+
+    async def gen():
+        async for ev in agent_thought_stream("media", f"Nội dung: {title}", plan_lines, run):
+            yield _sse(ev)
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
 
 
 # ============= 2. AI SINH ẢNH (SVG Procedural) =============

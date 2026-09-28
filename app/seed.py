@@ -52,7 +52,7 @@ async def seed_data(db: Session = None):
                 hashed_password=hash_password("demo123"),
                 role="member",
                 faculty="Công nghệ Thông tin",
-                student_id="SV2024001",
+                student_id="DTC2024001",
                 phone="0123456789",
                 skills="Python, React, AI, Machine Learning",
                 interests="Lập trình, Hackathon, Âm nhạc"
@@ -67,8 +67,22 @@ async def seed_data(db: Session = None):
             middle_names_female = ["Thị", "Ngọc", "Hồng", "Kim", "Thanh", "Bích", "Phương", "Hoài", "Khánh", "Mai", "Diệu", "Hà"]
             first_names_male = ["An", "Bình", "Dũng", "Phong", "Hùng", "Khánh", "Nam", "Quang", "Sơn", "Tuấn", "Minh", "Long", "Phúc", "Đạt", "Huy"]
             first_names_female = ["Chi", "Linh", "Mai", "Oanh", "Phương", "Thảo", "Uyên", "Vân", "Hoa", "Yến", "Hương", "Trang", "Vy", "Nhi", "Anh"]
-            faculties = ["Công nghệ Thông tin", "Kinh tế", "Kỹ thuật", "Y khoa", "Ngoại ngữ", "Luật", "Sư phạm", "Kiến trúc", "Thiết kế"]
-            class_prefix = {"Công nghệ Thông tin": "DHTI", "Kinh tế": "QTKD", "Kỹ thuật": "DHKT", "Ngoại ngữ": "DHNN"}
+            faculties = [
+                "Công nghệ Thông tin",
+                "An toàn Thông tin",
+                "Công nghệ Phần mềm",
+                "Hệ thống Thông tin",
+                "Truyền thông Đa phương tiện",
+                "Khoa học Máy tính",
+            ]
+            class_prefix = {
+                "Công nghệ Thông tin": "DTC",
+                "An toàn Thông tin": "DTC",
+                "Công nghệ Phần mềm": "DTC",
+                "Hệ thống Thông tin": "DTC",
+                "Truyền thông Đa phương tiện": "DTC",
+                "Khoa học Máy tính": "DTC",
+            }
 
             bios = [
                 "Đam mê công nghệ và thích khám phá những điều mới mẻ. Luôn sẵn sàng học hỏi.",
@@ -85,8 +99,8 @@ async def seed_data(db: Session = None):
             for i in range(50):
                 username = f"sv{i+1:03d}"
                 faculty = random.choice(faculties)
-                student_id = f"DTC{random.randint(100000000, 999999999)}"
-                prefix = class_prefix.get(faculty, "DHTI")
+                student_id = f"DTC{random.randint(10000000, 99999999)}"
+                prefix = "DTC"
                 class_name = f"{prefix}{random.randint(13, 18)}{random.choice(['A', 'B', 'C'])}{random.randint(1, 5)}"
 
                 is_female = random.random() < 0.5
@@ -160,7 +174,10 @@ async def seed_data(db: Session = None):
         existing_memberships = set((m.user_id, m.club_id) for m in db.query(Membership).all())
 
         for user in all_users:
-            chosen_clubs = random.sample(all_clubs, min(3, len(all_clubs)))
+            # Tài khoản demo chỉ seed vào 2 CLB → còn tới 18 CLB trống để demo lần lượt
+            # bấm "Tham gia" / "Rời CLB" cho thấy chức năng hoạt động (không bị "Đã tham gia" chặn hết).
+            n_membership = 2 if user.username == "demo" else min(3, len(all_clubs))
+            chosen_clubs = random.sample(all_clubs, min(n_membership, len(all_clubs)))
             for club in chosen_clubs:
                 if (user.id, club.id) not in existing_memberships:
                     role = "president" if user.id == club.president_id else "member"

@@ -8,6 +8,29 @@ from typing import Optional, AsyncGenerator
 from datetime import datetime, timezone
 import uuid
 import json
+import asyncio
+import time
+import re
+
+_recs_cache: dict = {}
+
+
+def _fallback_recommend(user_interests: str, clubs_data: list) -> list:
+    """Gợi ý nhanh không cần AI khi Ollama quá lâu"""
+    if not clubs_data:
+        return []
+    keys = (user_interests or "").lower()
+    cands = [c for c in clubs_data if c["name"] and (keys and (
+        keys in (c.get("category") or "").lower()
+        or any(k in (c.get("tags") or "").lower() for k in keys.split(" - "))
+        or any(k in (c.get("description") or "").lower() for k in keys.split(" - ")[:2] if k)
+    ))]
+    if not cands:
+        cands = sorted(clubs_data, key=lambda c: c.get("member_count", 0), reverse=True)
+    return [
+        {"club": c, "reason": "Gợi ý từ AI: phù hợp với sở thích của bạn", "score": 0.9}
+        for c in cands[:3]
+    ]
 
 from app.database import get_db
 from app.models import AIChatHistory, User, Club, Event, Post, Membership
@@ -22,7 +45,8 @@ from app.ai_service import (
     ai_analyze_sentiment, ai_recommend_for_user,
     ai_extract_keywords, check_ollama,
     ai_predict_club_growth, ai_smart_matching,
-    ai_generate_club_report, ai_agent_chat_stream
+    ai_generate_club_report, ai_agent_chat_stream,
+    get_ai_model_info
 )
 from app.ai.thought_engine import thought_engine
 
@@ -38,13 +62,20 @@ async def get_ai_status():
         "engine": "Cognitive Thought Engine (Ollama / Cloud Hybrid)",
         "features": [
             "Trợ lý tư duy đa bước (Chain-of-Thought)",
-            "Trích xuất Reasoning Traces (<think>)",
+            "Trích xuất Reasoning Traces ( thinking)",
             "Cố vấn hướng nghiệp cá nhân hóa (Career Mentor)",
             "Chiến lược gia tăng trưởng CLB (Growth Strategist)",
             "Kiến trúc sư sự kiện 360 độ (Event Architect)",
             "Sáng tạo nội dung truyền thông đa kênh (Media Producer)"
         ]
     }
+
+
+@router.get("/model-info")
+async def get_model_info():
+    """Thông tin mô hình AI hiệu dụng (Ollama model, provider) cho UI hiển thị"""
+    info = await get_ai_model_info()
+    return info
 
 
 @router.post("/chat", response_model=AIChatResponse)
@@ -96,15 +127,16 @@ async def chat_with_ai(
     )
 
     # Lưu phản hồi
-    ai_msg = AIChatHistory(
-        user_id=user_id,
-        session_id=session_id,
-        role="assistant",
-        message=reply,
-        context=payload.context
-    )
-    db.add(ai_msg)
-    db.commit()
+    if reply:
+        ai_msg = AIChatHistory(
+            user_id=user_id,
+            session_id=session_id,
+            role="assistant",
+            message=reply,
+            context=payload.context
+        )
+        db.add(ai_msg)
+        db.commit()
 
     suggestions = _get_suggestions(payload.message)
     return AIChatResponse(reply=reply, session_id=session_id, suggestions=suggestions)
@@ -177,7 +209,7 @@ async def chat_with_ai_stream(
                 yield f"data: {json.dumps({'type': 'error', 'content': data.get('content', '')})}\n\n"
 
         # Lưu phản hồi cuối cùng vào DB
-        if user_id:
+        if user_id and full_reply and full_reply.strip():
             ai_msg = AIChatHistory(
                 user_id=user_id,
                 session_id=session_id,
@@ -481,7 +513,12 @@ async def get_recommendations(
     current_user: User = Depends(require_user),
     db: Session = Depends(get_db)
 ):
-    """Gợi ý CLB & sự kiện cá nhân hóa"""
+    """Gợi ý CLB & sự kiện cá nhân hóa (AI, có cache + timeout để không chậm trang)"""
+    now_ts = time.time()
+    cached = _recs_cache.get(current_user.id)
+    if cached and now_ts - cached["at"] < 600:
+        return cached["data"]
+
     clubs = db.query(Club).filter(Club.is_active == True).limit(20).all()
     clubs_data = [
         {
@@ -489,18 +526,25 @@ async def get_recommendations(
             "name": c.name,
             "category": c.category,
             "description": c.description or "",
-            "tags": c.ai_tags or ""
+            "tags": c.ai_tags or "",
+            "member_count": c.member_count or 0
         } for c in clubs
     ]
 
     user_interests = f"{current_user.faculty or ''} - {current_user.skills or ''} - {current_user.interests or ''}"
-    club_recs = await ai_recommend_for_user(user_interests, clubs_data)
+    try:
+        club_recs = await asyncio.wait_for(
+            ai_recommend_for_user(user_interests, clubs_data),
+            timeout=6
+        )
+    except Exception:
+        club_recs = _fallback_recommend(user_interests, clubs_data)
 
     upcoming = db.query(Event).filter(
         Event.status == "upcoming"
     ).order_by(Event.start_time.asc()).limit(5).all()
 
-    return {
+    result = {
         "user_id": current_user.id,
         "clubs": club_recs,
         "events": [
@@ -514,6 +558,8 @@ async def get_recommendations(
             } for e in upcoming
         ]
     }
+    _recs_cache[current_user.id] = {"at": now_ts, "data": result}
+    return result
 
 
 @router.post("/extract-keywords")

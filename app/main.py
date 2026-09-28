@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request, Depends, Response, WebSocket, WebSocketDis
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.exceptions import RequestValidationError, HTTPException
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -51,6 +51,18 @@ async def lifespan(app: FastAPI):
     init_db()
     ensure_indexes()
     await seed_data()
+    try:
+        from app.ai.rag_service import rag_service
+        db = SessionLocal()
+        try:
+            rag_service.index_club_data(db)
+            rag_service.index_event_data(db)
+            rag_service.index_general_knowledge()
+            logger.info("RAG: đã index dữ liệu CLB, sự kiện & kiến thức tổng quan vào ChromaDB")
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning(f"RAG indexing bỏ qua: {e}")
     logger.info("Hệ thống đã sẵn sàng và hoạt động", port=settings.APP_PORT)
     yield
     logger.info("Tắt hệ thống")
@@ -132,9 +144,15 @@ app.add_middleware(
 # Exception Handlers
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    detail = "Dữ liệu không hợp lệ"
+    first = exc.errors()[0] if exc.errors() else None
+    if first:
+        field = ".".join(str(p) for p in first.get("loc", []) if p not in ("body", "query", "path"))
+        detail = f"Dữ liệu không hợp lệ: {field} ({first.get('msg', '')}). Path: {request.url.path}"
+        logger.warning("422 validate lỗi", path=request.url.path, field=field, msg=first.get("msg", ""))
     return JSONResponse(
         status_code=422,
-        content={"detail": "Dữ liệu không hợp lệ", "errors": exc.errors()}
+        content={"detail": detail, "errors": exc.errors()}
     )
 
 
@@ -190,6 +208,11 @@ async def root():
     if os.path.exists(index_path):
         return FileResponse(index_path)
     return {"message": "Hệ thống Quản lý CLB Sinh viên - AI Powered", "docs": "/docs"}
+
+
+@app.get("/ai")
+async def ai_page():
+    return RedirectResponse("/#/ai-assistant")
 
 
 @app.get("/dashboard")

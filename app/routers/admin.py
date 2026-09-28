@@ -15,7 +15,7 @@ from typing import Optional
 from app.database import get_db
 from app.models import (
     User, Club, Event, Post, Membership, EventRegistration,
-    FileUpload, EmailLog, Comment, Notification, EventRating
+    FileUpload, EmailLog, Comment, Notification, EventRating, Reaction
 )
 from app.security import require_admin
 from app.utils import create_notification, log_activity
@@ -406,7 +406,7 @@ def advanced_stats(
             "comments": db.query(Comment).count()
         },
         "engagement": {
-            "total_reactions": db.query(func.count()).select_from(Notification).scalar() or 0
+            "total_reactions": db.query(func.count()).select_from(Reaction).scalar() or 0
         }
     }
 

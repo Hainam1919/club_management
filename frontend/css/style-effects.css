@@ -1,0 +1,196 @@
+/* =====================================================================
+   STYLE EFFECTS — chỉ chuyển động/animation (không đổi màu, không đổi layout)
+   Trang chủ (body.is-home) không nhận các hiệu ứng này.
+   ===================================================================== */
+
+/* ---------- Reveal on scroll ---------- */
+.fx-in {
+    animation: fxReveal 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes fxReveal {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- Ripple nút ---------- */
+.fx-ripple {
+    position: absolute;
+    border-radius: 50%;
+    transform: scale(0);
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.15));
+    pointer-events: none;
+    animation: fxRipple 0.6s ease-out forwards;
+}
+@keyframes fxRipple {
+    to { transform: scale(1); opacity: 0; }
+}
+
+/* ---------- Card tilt cần giữ 3D smooth ---------- */
+.club-card, .event-card, .member-card {
+    transform-style: preserve-3d;
+}
+/* will-change: KHÔNG đặt vĩnh viễn (tốn GPU cho cả list dài),
+   chỉ kích hoạt khi hover — JS tự bật/tắt inline */
+@media (hover: hover) {
+    .club-card:hover, .event-card:hover, .member-card:hover {
+        will-change: transform, box-shadow;
+    }
+}
+
+/* =====================================================================
+   NỀN GRADIENT — tĩnh nhẹ (tối ưu tốc độ: tránh repaint mỗi frame)
+   ===================================================================== */
+
+/* Aurora tĩnh cho background trang app (không animation) */
+body:not(.is-home)::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background:
+        radial-gradient(760px 560px at 18% 12%, rgba(99, 102, 241, 0.14), transparent 62%),
+        radial-gradient(820px 600px at 86% 8%, rgba(236, 72, 153, 0.12), transparent 62%),
+        radial-gradient(760px 600px at 72% 92%, rgba(13, 148, 136, 0.12), transparent 60%);
+    pointer-events: none;
+}
+body:not(.is-home) #app { position: relative; z-index: 1; }
+
+/* stat-card::before = blob sáng trôi chậm (diện tích nhỏ, GPU-transform) */
+body:not(.is-home) .stat-card::before {
+    animation: fxBlob 10s ease-in-out infinite alternate;
+    will-change: transform;
+}
+@keyframes fxBlob {
+    0% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.9; }
+    100% { transform: translate3d(26%, 14%, 0) scale(1.25); opacity: 0.5; }
+}
+
+/* Hoa văn decor TRỌNG TẢI: chỉ ô KPI nhỏ drift; layer lớn tĩnh */
+body:not(.is-home) .stat-card::after { animation: fxDrift36 16s linear infinite; }
+
+@keyframes fxDrift36 { to { background-position: 36px 36px; } }
+
+/* Bong bóng "thở" — GPU transform + chỉ-diện-tích-nhỏ banner (100px) */
+body:not(.is-home) .event-banner::after {
+    animation: fxBreathe 7s ease-in-out infinite;
+    will-change: transform;
+}
+@keyframes fxBreathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+}
+@keyframes fxTwinkle {
+    0%, 100% { opacity: 0.45; }
+    50% { opacity: 0.68; }
+}
+
+/* CTA gradient: ánh sáng quét ngang */
+/* CTA gradient: ánh sáng quét ngang */
+section[style*="gradient-hero"]::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(105deg, transparent 42%, rgba(255, 255, 255, 0.10) 50%, transparent 58%);
+    transform: translateX(-100%);
+    animation: fxSheen 7s ease-in-out infinite;
+    will-change: transform;
+    pointer-events: none;
+}
+/* Homepage: CTA "phần dưới" (class cta-fx) có hiệu ứng như các trang còn lại */
+@keyframes fxSheen {
+    0%, 55% { transform: translateX(-100%); }
+    88%, 100% { transform: translateX(100%); }
+}
+
+/* Tin tức: ghim pulsing + AI chip shine */
+@keyframes fxPinPulse {
+    0%, 100% { filter: drop-shadow(0 0 3px rgba(251, 191, 36, 0.7)); opacity: 1; }
+    50% { filter: drop-shadow(0 0 11px rgba(251, 191, 36, 1)); opacity: 0.85; }
+}
+@keyframes fxAiShine {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
+}
+
+/* Tech badge: chấm nhấp nháy */
+body:not(.is-home) .tech-badge::before {
+    animation: fxTechDot 3.2s ease-in-out infinite;
+}
+body:not(.is-home) .tech-badge:nth-child(2)::before { animation-delay: 0.8s; }
+body:not(.is-home) .tech-badge:nth-child(3)::before { animation-delay: 1.6s; }
+body:not(.is-home) .tech-badge:nth-child(4)::before { animation-delay: 2.4s; }
+@keyframes fxTechDot {
+    0%, 100% { opacity: 0.35; text-shadow: none; }
+    50% { opacity: 1; text-shadow: 0 0 8px currentColor; }
+}
+
+/* =====================================================================
+   PARTICLES — canvas bụi phấn bay trên banner gradient
+   ===================================================================== */
+.fx-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+}
+section[style*="gradient-hero"] > :not(.fx-canvas),
+body:not(.is-home) .detail-header > :not(.fx-canvas),
+body:not(.is-home) .event-banner > :not(.fx-canvas):not(.event-date-badge),
+body:not(.is-home) .profile-header > :not(.fx-canvas),
+body:not(.is-home) .settings-hero > :not(.fx-canvas),
+body:not(.is-home) .timeline-hero > :not(.fx-canvas),
+body:not(.is-home) .cert-hero > :not(.fx-canvas) {
+    position: relative;
+    z-index: 2;
+}
+
+/* ---------- Liệt kê dài: bỏ qua render phần ngoài màn hình ---------- */
+body:not(.is-home) .club-card,
+body:not(.is-home) .event-card,
+body:not(.is-home) .member-card,
+body:not(.is-home) .post-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 300px;
+}
+
+/* ---------- Tôn trọng người dùng giảm chuyển động ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .fx-in { animation: none !important; }
+    .fx-ripple { animation: none !important; }
+    body:not(.is-home) .stat-card::before,
+    body:not(.is-home) .stat-card::after,
+    body:not(.is-home) .event-banner::after,
+    section[style*="gradient-hero"]::after,
+    body:not(.is-home) .settings-hero::after,
+    body:not(.is-home) .timeline-hero::after,
+    body:not(.is-home) .post-card.pinned::before,
+    body:not(.is-home) .post-action.ai-tag,
+    body:not(.is-home) .tech-badge::before {
+        animation: none !important;
+    }
+}
+/* Chữ trắng lấp lánh (fx-sparkle — CTA AI trang chủ) */
+.fx-sparkle {
+    color: #fff;
+    text-shadow: 0 0 18px rgba(255, 255, 255, 0.35);
+}
+@supports ((background-clip: text) or (-webkit-background-clip: text)) {
+    .fx-sparkle {
+        background: linear-gradient(110deg,
+            #ffffff 0%, #ffffff 22%,
+            #dbe6ff 38%, #ffffff 52%,
+            #ffffff 100%);
+        background-size: 220% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: fxSparkle 3s linear infinite;
+    }
+}
+@keyframes fxSparkle {
+    0%   { background-position: 130% 0; }
+    100% { background-position: -90% 0; }
+}

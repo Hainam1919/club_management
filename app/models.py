@@ -259,6 +259,12 @@ class Poll(Base):
     closes_at = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    options = relationship(
+        "PollOption",
+        back_populates="poll",
+        cascade="all, delete-orphan",
+        order_by="PollOption.order_index"
+    )
 
 
 class PollOption(Base):
@@ -267,6 +273,7 @@ class PollOption(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     poll_id = Column(Integer, ForeignKey("polls.id"), nullable=False, index=True)
+    poll = relationship("Poll", back_populates="options")
     text = Column(String(200), nullable=False)
     vote_count = Column(Integer, default=0)
     order_index = Column(Integer, default=0)

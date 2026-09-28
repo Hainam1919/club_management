@@ -1,16 +1,27 @@
 // ============= PAGES =============
+
+// An toàn khi vẽ Chart.js: bỏ qua canvas không tồn tại,
+// tự destroy chart cũ trước khi vẽ lại để tránh "Canvas is already in use"
+function safeChart(elOrId, config) {
+    if (typeof Chart === 'undefined') return null;
+    const el = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
+    if (!el) return null;
+    const old = Chart.getChart(el);
+    if (old) old.destroy();
+    return new Chart(el, config);
+}
+
 const Pages = {
 
     // ============= HOME =============
     async renderHome(main) {
-        const [overview, featured, upcoming, latestPosts, popularClubs, activity, recommendations] = await Promise.all([
+        const [overview, featured, upcoming, latestPosts, popularClubs, activity] = await Promise.all([
             API.getOverview(),
             API.getFeaturedClubs(),
             API.getUpcomingEvents(),
             API.getLatestPosts(),
             API.getPopularClubs(),
-            API.getActivity(),
-            API.isLoggedIn() ? API.getRecommendations().catch(() => []) : Promise.resolve([])
+            API.getActivity()
         ]);
 
         main.innerHTML = `
@@ -25,6 +36,8 @@ const Pages = {
                     <div class="hero-particle"></div><div class="hero-particle"></div>
                     <div class="hero-particle"></div><div class="hero-particle"></div>
                 </div>
+                <div class="hero-aurora" aria-hidden="true"></div>
+                <div class="hero-pattern" aria-hidden="true"></div>
                 <div class="container">
                     <div class="hero-grid">
                         <!-- Left: Content -->
@@ -34,7 +47,7 @@ const Pages = {
                                 <i class="fa-solid fa-sparkles" style="font-size:12px"></i>
                                 Tích hợp AI · Công nghệ mới nhất 2026
                             </div>
-                            <h1>Quản lý Câu lạc bộ <br><span class="gradient-text">Sinh viên thông minh</span></h1>
+                            <h1><span class="gradient-text">Quản lý Câu lạc bộ</span><br><span class="gradient-text">Sinh viên thông minh</span></h1>
                             <p>Nền tảng kết nối sinh viên ICTU với các CLB, sự kiện, mentor và cơ hội phát triển bản thân. Tất cả trong một hệ thống thống nhất.</p>
 
                             <!-- Search Box nổi bật -->
@@ -166,7 +179,7 @@ const Pages = {
             </section>
 
             <!-- QUICK STATS -->
-            <section class="section" style="padding:60px 0">
+            <section class="section section-fx">
                 <div class="container">
                     <div class="grid grid-4">
                         <div class="stat-card">
@@ -201,38 +214,26 @@ const Pages = {
                 </div>
             </section>
 
-            ${API.isLoggedIn() && recommendations.length ? `
+            ${API.isLoggedIn() ? `
             <!-- AI RECOMMENDATIONS -->
-            <section class="section" style="background:var(--bg-soft);padding:40px 0">
+            <section class="section section-fx" id="aiRecSection">
                 <div class="container">
                     <div class="section-header">
                         <span class="section-eyebrow" style="background:linear-gradient(135deg, #a855f7, #ec4899);color:white">✨ AI Gợi ý</span>
                         <h2 class="section-title">Dành riêng cho bạn</h2>
                         <p class="section-subtitle">AI phân tích sở thích & hoạt động để gợi ý CLB phù hợp</p>
                     </div>
-                    <div class="grid grid-3">
-                        ${recommendations.slice(0, 6).map(c => `
-                        <div class="card" style="cursor:pointer" data-page="club-detail" data-id="${c.id}">
-                            <div style="width:100%;height:140px;background:var(--gradient-1);border-radius:12px;display:grid;place-items:center;font-size:56px;margin-bottom:12px;position:relative">
-                                ${getAIIcon ? getAIIcon(c.category, 80) : '🎯'}
-                                <div style="position:absolute;top:8px;right:8px;background:linear-gradient(135deg, #a855f7, #ec4899);color:white;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700">
-                                    <i class="fa-solid fa-sparkles"></i> ${Math.round(c.score || c.match_score || 0)}%
-                                </div>
-                            </div>
-                            <h3 style="margin-bottom:6px">${this._escapeHtml(c.name || c.club_name || '')}</h3>
-                            <p style="color:var(--text-mute);font-size:13px;margin-bottom:8px">${this._escapeHtml(c.reason || c.description || '').slice(0, 80)}</p>
-                            <div style="font-size:12px;color:var(--text-mute)">
-                                <i class="fa-solid fa-users"></i> ${c.member_count || 0} thành viên
-                            </div>
+                    <div class="grid grid-3" id="aiRecs">
+                        <div class="loading" style="grid-column:1/-1;justify-content:center;padding:24px">
+                            <i class="fa-solid fa-spinner fa-spin"></i> AI đang gợi ý cho bạn...
                         </div>
-                        `).join('')}
                     </div>
                 </div>
             </section>` : ''}
             </section>
 
             <!-- FEATURES -->
-            <section class="section" style="background:var(--bg-soft)">
+            <section class="section section-fx">
                 <div class="container">
                     <div class="section-header">
                         <span class="section-eyebrow">Tính năng nổi bật</span>
@@ -275,7 +276,7 @@ const Pages = {
             </section>
 
             <!-- CATEGORIES -->
-            <section class="section">
+            <section class="section section-fx">
                 <div class="container">
                     <div class="section-header">
                         <span class="section-eyebrow">Danh mục</span>
@@ -317,7 +318,7 @@ const Pages = {
             </section>
 
             <!-- FEATURED CLUBS -->
-            <section class="section" style="background:#fff">
+            <section class="section section-fx">
                 <div class="container">
                     <div class="section-header">
                         <span class="section-eyebrow">Câu lạc bộ nổi bật</span>
@@ -335,7 +336,7 @@ const Pages = {
             </section>
 
             <!-- UPCOMING EVENTS -->
-            <section class="section">
+            <section class="section section-fx">
                 <div class="container">
                     <div class="section-header">
                         <span class="section-eyebrow">Sắp diễn ra</span>
@@ -353,7 +354,7 @@ const Pages = {
             </section>
 
             <!-- LATEST POSTS -->
-            <section class="section" style="background:var(--bg-soft)">
+            <section class="section section-fx">
                 <div class="container">
                     <div class="section-header">
                         <span class="section-eyebrow">Tin mới nhất</span>
@@ -371,10 +372,10 @@ const Pages = {
             </section>
 
             <!-- AI CTA -->
-            <section class="section" style="background:var(--gradient-hero);color:white">
+            <section class="section cta-fx" style="background:var(--gradient-hero);color:white">
                 <div class="container" style="text-align:center">
                     <span class="hero-badge"><span class="pulse"></span> AI đang chờ bạn</span>
-                    <h2 class="section-title" style="color:white;margin-top:16px">Trợ lý AI thông minh<br>Luôn sẵn sàng hỗ trợ</h2>
+                    <h2 class="section-title fx-sparkle" style="color:white;margin-top:16px">Trợ lý AI thông minh<br>Luôn sẵn sàng hỗ trợ</h2>
                     <p class="section-subtitle" style="color:rgba(255,255,255,0.8);margin-bottom:32px">Hỏi bất cứ điều gì về CLB, sự kiện, hoạt động sinh viên. AI sẽ tư vấn cho bạn 24/7.</p>
                     <a class="btn btn-primary btn-lg" data-page="ai-assistant" style="background:white;color:var(--primary)">
                         <i class="fa-solid fa-comments"></i> Trò chuyện với AI
@@ -384,6 +385,41 @@ const Pages = {
         `;
         this.bindDataPageLinks(main);
         this.bindHeroSearch(main);
+        if (API.isLoggedIn()) setTimeout(() => this.loadHomeRecommendations(), 30);
+    },
+
+    loadHomeRecommendations() {
+        const box = document.getElementById('aiRecs');
+        if (!box || !box.isConnected) return;
+        const render = (recs) => {
+            if (!box.isConnected) return;
+            if (!recs.length) {
+                document.getElementById('aiRecSection')?.remove();
+                return;
+            }
+            const cards = recs.slice(0, 6).map(c => {
+                const data = c.club || c;
+                const score = Math.round(c.score || c.match_score || 0);
+                const name = data.name || data.club_name || '';
+                const desc = (c.reason || data.description || '').slice(0, 80);
+                const tid = data.id;
+                return `
+                <div class="card ai-recs-card" ${tid ? `data-page="club-detail" data-id="${tid}"` : ''} style="cursor:pointer">
+                    <div style="width:100%;height:140px;background:var(--gradient-1);border-radius:12px;display:grid;place-items:center;font-size:56px;margin-bottom:12px;position:relative">
+                        ${getAIIcon ? getAIIcon(data.category, 80) : '🎯'}
+                        <div style="position:absolute;top:8px;right:8px;background:linear-gradient(135deg, #a855f7, #ec4899);color:white;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700">
+                            <i class="fa-solid fa-sparkles"></i> ${score}%
+                        </div>
+                    </div>
+                    <h3 style="margin-bottom:6px">${this._escapeHtml(name)}</h3>
+                    <p style="color:var(--text-mute);font-size:13px;margin-bottom:8px">${this._escapeHtml(desc)}</p>
+                </div>`;
+            }).join('');
+            box.innerHTML = cards;
+            this.bindDataPageLinks(box);
+        };
+        const timeout = new Promise(res => setTimeout(() => res([]), 4000));
+        Promise.race([API.getRecommendations().catch(() => []), timeout]).then(render);
     },
 
     bindHeroSearch(main) {
@@ -509,7 +545,7 @@ const Pages = {
                     </div>
 
                     <div style="display:flex;gap:8px;max-width:600px;margin:0 auto 16px">
-                        <input type="text" class="form-input" id="clubSearchInput" placeholder="🔍 Tìm CLB theo tên..." value="${this._escapeHtml(params.q || '')}" style="flex:1">
+                        <input type="text" class="form-input" id="clubSearchInput" placeholder="Tìm CLB theo tên hoặc mô tả..." value="${this._escapeHtml(params.q || '')}" style="flex:1">
                         <select id="clubSortSelect" class="form-input" style="max-width:180px">
                             <option value="name" ${params.sort === 'name' ? 'selected' : ''}>Tên A-Z</option>
                             <option value="members" ${params.sort === 'members' || !params.sort ? 'selected' : ''}>Nhiều thành viên</option>
@@ -518,12 +554,12 @@ const Pages = {
                     </div>
 
                     <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:32px">
-                        <button class="filter-pill ${!params.category ? 'active' : ''}" data-filter="">
-                            Tất cả
-                        </button>
-                        ${categories.map(c => `
+<button class="filter-pill ${!params.category ? 'active' : ''}" data-filter="">
+                                Tất cả
+                            </button>
+                            ${categories.map(c => `
                             <button class="filter-pill ${params.category === c.name ? 'active' : ''}" data-filter="${c.name}">
-                                ${getCategoryEmoji(c.name)} ${c.name} (${c.count})
+                                ${c.name} (${c.count})
                             </button>
                         `).join('')}
                     </div>
@@ -609,7 +645,7 @@ const Pages = {
         const club = clubs.find(c => c.id === p.club_id) || { name: 'CLB', category: 'Khác' };
         const typeLabels = { news: 'Tin tức', announcement: 'Thông báo', recruitment: 'Tuyển thành viên' };
         return `
-            <div class="post-card ${p.is_pinned ? 'pinned' : ''}">
+            <div class="post-card ${p.is_pinned ? 'pinned' : ''} type-${p.post_type || 'news'}">
                 ${p.is_pinned ? '<div style="color:var(--warning);font-size:12px;font-weight:600;margin-bottom:8px"><i class="fa-solid fa-thumbtack"></i> Ghim</div>' : ''}
                 <div class="post-meta">
                     <span class="club-category" style="margin:0;padding:2px 8px">${getCategoryEmoji(club.category)} ${club.name}</span>
@@ -621,7 +657,7 @@ const Pages = {
                 <div class="post-actions">
                     <span class="post-action"><i class="fa-solid fa-eye"></i> ${p.views}</span>
                     <span class="post-action"><i class="fa-solid fa-heart"></i> ${p.likes}</span>
-                    ${p.ai_keyword ? `<span class="post-action" style="color:var(--primary)"><i class="fa-solid fa-robot"></i> AI: ${(p.ai_keyword || '').split(',').slice(0, 2).join(', ')}</span>` : ''}
+                    ${p.ai_keyword ? `<span class="post-action ai-tag"><i class="fa-solid fa-robot"></i> AI: ${(p.ai_keyword || '').split(',').slice(0, 2).join(', ')}</span>` : ''}
                 </div>
             </div>
         `;
@@ -691,7 +727,11 @@ const Pages = {
             API.isLoggedIn() ? API.getFollowStatus('club', id).catch(() => ({ is_following: false, followers_count: 0 })) : Promise.resolve({ is_following: false, followers_count: 0 })
         ]);
 
-        const isMember = API.isLoggedIn() && members.some(m => m.user_id === API.getUser().id);
+        const me = API.getUser();
+        const isMember = club.is_member ?? (API.isLoggedIn() && members.some(m => m.user_id === me?.id));
+        this._clubMembersCache = this._clubMembersCache || {};
+        this._clubMembersCache[id] = members;
+        const isPresident = members.some(m => m.user_id === me?.id && m.role === 'president');
 
         main.innerHTML = `
             <div class="detail-header" style="background:linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%)">
@@ -703,7 +743,7 @@ const Pages = {
                         <div style="flex:1;min-width:0">
                             <h1>${this._escapeHtml(club.name)}</h1>
                             <div class="detail-header-meta">
-                                <div class="detail-header-meta-item"><i class="fa-solid fa-users"></i> ${club.member_count} thành viên</div>
+                                <div class="detail-header-meta-item cm-count" data-club-id="${id}"><i class="fa-solid fa-users"></i> <span>${members.length} thành viên</span></div>
                                 <div class="detail-header-meta-item"><i class="fa-solid fa-calendar"></i> Thành lập ${formatDate(club.founded_date)}</div>
                                 ${club.meeting_room ? `<div class="detail-header-meta-item"><i class="fa-solid fa-location-dot"></i> ${this._escapeHtml(club.meeting_room)}</div>` : ''}
                             </div>
@@ -714,6 +754,10 @@ const Pages = {
                             ${followStatus.is_following ? 'Đang theo dõi' : 'Theo dõi'}
                         </button>` : ''}
                     </div>
+                    ${members.length ? `
+                    <div class="cm-avatar-stack" data-club-preview="${id}">
+                        ${this._avatarStackHTML(members, 8)}
+                    </div>` : ''}
                 </div>
             </div>
 
@@ -722,7 +766,7 @@ const Pages = {
                     <!-- Tabs -->
                     <div class="tabs" style="margin-bottom:24px">
                         <div class="tab active" data-clubtab="about">📋 Giới thiệu</div>
-                        <div class="tab" data-clubtab="members">👥 Thành viên (${members.length})</div>
+                        <div class="tab" data-clubtab="members">👥 Thành viên (<span class="cm-tab-count" data-club-id="${id}">${members.length}</span>)</div>
                         <div class="tab" data-clubtab="documents">📁 Tài liệu</div>
                         ${club.mission || club.vision ? '<div class="tab" data-clubtab="vision">🎯 Sứ mệnh & Tầm nhìn</div>' : ''}
                     </div>
@@ -749,7 +793,7 @@ const Pages = {
                     <div id="clubtab-vision" hidden>
                         ${club.mission ? `
                         <div class="detail-section" style="border-left:4px solid var(--primary)">
-                            <h2><i class="fa-solid fa-bullseye" style="color:var(--primary)"></i> Sứ mệnh</h2>
+                            <h2><i class="fa-solid fa-bullest" style="color:var(--primary)"></i> Sứ mệnh</h2>
                             <p style="line-height:1.8">${club.mission}</p>
                         </div>` : ''}
                         ${club.vision ? `
@@ -761,23 +805,20 @@ const Pages = {
 
                     <div id="clubtab-members" hidden>
                         <div class="detail-section">
-                            <h2><i class="fa-solid fa-people-group"></i> Thành viên (${members.length})</h2>
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+                                <h2 style="margin:0"><i class="fa-solid fa-people-group"></i> Thành viên CLB (<span class="cm-tab-count" data-club-id="${id}">${members.length}</span>)</h2>
+                                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                                    <input type="search" class="form-input" id="clubMemberSearch" placeholder="Tìm thành viên..." style="padding:8px 14px;font-size:13px;max-width:220px">
+                                    <button class="btn btn-sm" data-club-member-filter="all">Tất cả</button>
+                                    <button class="btn btn-sm" data-club-member-filter="leader">Ban chủ nhiệm</button>
+                                </div>
+                            </div>
                             <p style="color:var(--text-mute);margin-bottom:16px">Click vào thành viên để xem profile chi tiết</p>
-                            <div class="grid grid-2" style="gap:12px">
-                                ${members.map(m => `
-                                    <div onclick="App.navigate('member-profile',{id:${m.user_id}})" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-soft);border-radius:var(--radius);cursor:pointer;transition:all 0.2s" onmouseover="this.style.background='rgba(99,102,241,0.1)'" onmouseout="this.style.background='var(--bg-soft)'">
-                                        <div style="width:48px;height:48px;border-radius:50%;background:var(--gradient-ai);color:white;display:grid;place-items:center;font-weight:700">
-                                            ${(m.full_name || m.username).split(' ').map(p => p[0]).slice(0,2).join('').toUpperCase()}
-                                        </div>
-                                        <div style="flex:1">
-                                            <div style="font-weight:600">${m.full_name}</div>
-                                            <div style="font-size:12px;color:var(--text-mute)">
-                                                ${m.role === 'president' ? '👑 Chủ nhiệm' : m.role === 'vice_president' ? '⭐ Phó chủ nhiệm' : 'Thành viên'}
-                                            </div>
-                                        </div>
-                                        <i class="fa-solid fa-chevron-right" style="color:var(--text-mute)"></i>
-                                    </div>
-                                `).join('')}
+                            <div class="cm-role-summary" data-club-roles="${id}">
+                                ${this._roleSummaryHTML(members)}
+                            </div>
+                            <div class="grid grid-2" style="gap:12px" id="clubMembersList" data-club-id="${id}">
+                                ${this._clubMembersHTML(members)}
                             </div>
                         </div>
                     </div>
@@ -798,11 +839,13 @@ const Pages = {
                 <aside class="detail-aside">
                     <div>
                         ${API.isLoggedIn() ? `
-                            <button class="btn btn-primary" id="joinBtn" style="width:100%">
-                                <i class="fa-solid fa-${isMember ? 'check' : 'plus'}"></i>
-                                ${isMember ? 'Đã tham gia' : 'Tham gia CLB'}
-                            </button>
-                            ${isMember ? `<button class="btn btn-secondary" id="leaveBtn" style="width:100%;margin-top:8px">Rời CLB</button>` : ''}
+                            ${this._clubJoinButtonHTML(id, isMember)}
+                            <p class="cm-hint" data-club-hint="${id}">
+                                <i class="fa-solid fa-circle-info"></i>
+                                ${isMember
+                                    ? 'Bạn đã là thành viên. Bấm lại nút trên để rời CLB.'
+                                    : (isPresident ? 'Bạn là chủ nhiệm CLB này.' : 'Bấm để tham gia và xem danh sách thành viên.')}
+                            </p>
                             ${(API.getUser()?.id === club.president_id || API.isAdmin()) ? `
                                 <a class="btn btn-secondary" data-page="club-manage" data-id="${id}" style="width:100%;margin-top:8px;background:linear-gradient(135deg, #f59e0b, #d97706);color:white">
                                     <i class="fa-solid fa-gear"></i> Quản lý CLB
@@ -810,6 +853,17 @@ const Pages = {
                             ` : ''}
                         ` : `<a class="btn btn-primary" data-page="login" style="width:100%">Đăng nhập để tham gia</a>`}
                     </div>
+                    ${members.length ? `
+                    <div>
+                        <h3 style="font-size:14px;margin-bottom:12px"><i class="fa-solid fa-users"></i> Thành viên nổi bật</h3>
+                        <div class="cm-avatar-stack" data-club-preview="${id}">${this._avatarStackHTML(members, 8)}</div>
+                        <p style="font-size:12px;color:var(--text-mute);margin-top:8px" data-club-preview-text="${id}">
+                            ${this._previewText(members)}
+                        </p>
+                        <button class="btn btn-sm btn-ghost" style="width:100%;margin-top:8px" data-clubtab-jump="members">
+                            <i class="fa-solid fa-arrow-right"></i> Xem tất cả thành viên
+                        </button>
+                    </div>` : ''}
                     ${club.ai_tags ? `
                     <div>
                         <h3 style="font-size:14px;margin-bottom:12px"><i class="fa-solid fa-tags"></i> Tags</h3>
@@ -835,29 +889,38 @@ const Pages = {
             });
         });
 
-        if (isMember) {
-            document.getElementById('joinBtn')?.addEventListener('click', () => {
-                showToast('Bạn đã là thành viên CLB này', 'info');
+        // Nút "Xem tất cả thành viên" trong sidebar -> mở tab Thành viên
+        document.querySelectorAll('[data-clubtab-jump]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = document.querySelector('[data-clubtab="members"]');
+                if (tab) tab.click();
+                document.getElementById('clubtab-members')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             });
-            document.getElementById('leaveBtn')?.addEventListener('click', async () => {
-                if (confirm('Bạn có chắc muốn rời CLB?')) {
-                    try {
-                        await API.leaveClub(id);
-                        showToast('Đã rời CLB', 'success');
-                        App.navigate('club-detail', { id });
-                    } catch (e) { showToast(e.message, 'error'); }
-                }
+        });
+
+        // Lọc / tìm thành viên trong CLB
+        const searchInput = document.getElementById('clubMemberSearch');
+        const roleFilter = { value: 'all' };
+        const applyFilter = () => {
+            const q = (searchInput?.value || '').trim().toLowerCase();
+            const list = this._clubMembersCache[id] || [];
+            const filtered = list.filter(m => {
+                const matchRole = roleFilter.value === 'all' || m.role === roleFilter.value;
+                const haystack = `${m.full_name || ''} ${m.username || ''} ${m.faculty || ''} ${m.student_id || ''}`.toLowerCase();
+                return matchRole && (!q || haystack.includes(q));
             });
-        } else if (API.isLoggedIn()) {
-            document.getElementById('joinBtn')?.addEventListener('click', async () => {
-                try {
-                    const r = await API.joinClub(id);
-                    showToast(r.message, 'success');
-                    if (r.achievements_unlocked?.length) this._showAchievementUnlock(r.achievements_unlocked);
-                    App.navigate('club-detail', { id });
-                } catch (e) { showToast(e.message, 'error'); }
+            const box = document.getElementById('clubMembersList');
+            if (box) box.innerHTML = this._clubMembersHTML(filtered);
+        };
+        searchInput?.addEventListener('input', applyFilter);
+        document.querySelectorAll('[data-club-member-filter]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                roleFilter.value = btn.dataset.clubMemberFilter;
+                document.querySelectorAll('[data-club-member-filter]').forEach(b => b.classList.remove('btn-primary'));
+                btn.classList.add('btn-primary');
+                applyFilter();
             });
-        }
+        });
 
         // Follow club
         document.getElementById('followClubBtn')?.addEventListener('click', async () => {
@@ -877,6 +940,237 @@ const Pages = {
 
         this.bindDataPageLinks(main);
     },
+
+    // ---------- HELPER: thành viên CLB ----------
+    _avatarHTML(user, size = 40) {
+        const name = user?.full_name || user?.username || '?';
+        const av = user?.avatar;
+        const isImage = typeof av === 'string' && (av.startsWith('/') || av.startsWith('http'));
+        if (isImage) {
+            return `<img src="${av}" alt="${this._escapeHtml(name)}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.outerHTML='<div style=&quot;width:${size}px;height:${size}px;border-radius:50%;background:var(--gradient-ai);color:white;display:grid;place-items:center;font-weight:700;font-size:${Math.round(size / 2.6)}px&quot;>${this._escapeHtml(name[0])}</div>'">`;
+        }
+        const initials = name.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase();
+        return `<div class="cm-avatar" style="width:${size}px;height:${size}px;font-size:${Math.round(size / 2.6)}px">${this._escapeHtml(initials)}</div>`;
+    },
+
+    _roleLabel(role) {
+        return role === 'president' ? '👑 Chủ nhiệm'
+            : role === 'vice_president' ? '⭐ Phó chủ nhiệm'
+            : role === 'secretary' ? '📋 Thư ký'
+            : role === 'treasurer' ? '💰 Thủ quỹ'
+            : 'Thành viên';
+    },
+
+    _roleSummaryHTML(members) {
+        const count = role => members.filter(m => m.role === role).length;
+        const chips = [
+            { role: 'president', label: 'Chủ nhiệm', n: count('president'), color: '#f59e0b' },
+            { role: 'vice_president', label: 'Phó chủ nhiệm', n: count('vice_president'), color: '#8b5cf6' },
+            { role: 'member', label: 'Thành viên', n: members.length - count('president') - count('vice_president'), color: 'var(--primary)' }
+        ];
+        return chips.map(c => `
+            <span class="cm-chip" style="--chip:${c.color}">
+                <strong>${c.n}</strong> ${c.label}
+            </span>`).join('');
+    },
+
+    _clubMembersHTML(members) {
+        if (!members.length) {
+            return `<p class="empty" style="grid-column:1/-1">Chưa có thành viên nào${API.isLoggedIn() ? ' - hãy là người đầu tiên tham gia!' : ''}</p>`;
+        }
+        return members.map(m => `
+            <div class="cm-row" onclick="App.navigate('member-profile',{id:${m.user_id}})">
+                ${this._avatarHTML(m, 48)}
+                <div style="flex:1;min-width:0">
+                    <div style="font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                        ${this._escapeHtml(m.full_name || m.username)}
+                        ${m.is_me ? '<span class="cm-me">Bạn</span>' : ''}
+                    </div>
+                    <div style="font-size:12px;color:var(--text-mute)">
+                        <i class="fa-solid ${m.role === 'president' ? 'fa-crown' : m.role === 'vice_president' ? 'fa-star' : 'fa-user'}"></i>
+                        ${this._roleLabel(m.role)}
+                        ${m.faculty ? ` · ${this._escapeHtml(m.faculty)}` : ''}
+                    </div>
+                    <div style="font-size:11px;color:var(--text-mute);margin-top:2px">
+                        <i class="fa-solid fa-calendar-check"></i> Tham gia ${formatDate(m.joined_at)}
+                        ${m.contribution_score ? ` · <i class="fa-solid fa-fire"></i> ${Math.round(m.contribution_score)} điểm đóng góp` : ''}
+                    </div>
+                </div>
+                <i class="fa-solid fa-chevron-right" style="color:var(--text-mute)"></i>
+            </div>`).join('');
+    },
+
+    _avatarStackHTML(members, max = 8) {
+        const shown = members.slice(0, max);
+        const rest = members.length - shown.length;
+        return shown.map(m => `
+            <span class="cm-avatar cm-avatar-stack-item" title="${this._escapeHtml(m.full_name || m.username)}" onclick="App.navigate('member-profile',{id:${m.user_id}})">
+                ${this._escapeHtml((m.avatar && !m.avatar.startsWith('/') && !m.avatar.startsWith('http')) ? m.avatar : (m.full_name || m.username || '?')[0].toUpperCase())}
+            </span>`).join('') + (rest > 0 ? `<span class="cm-avatar cm-avatar-more">+${rest}</span>` : '');
+    },
+
+    _previewText(members) {
+        const names = members.slice(0, 3).map(m => m.full_name || m.username);
+        const rest = members.length - names.length;
+        return `${names.join(', ')}${rest > 0 ? ` và ${rest} thành viên khác` : ''}`;
+    },
+
+    _clubJoinButtonHTML(clubId, isMember, extraStyle = '') {
+        return `
+            <button class="btn ${isMember ? 'btn-success' : 'btn-primary'} cm-toggle-btn" style="width:100%;${extraStyle}"
+                data-club-toggle data-club-id="${clubId}" data-state="${isMember ? 'joined' : 'none'}"
+                data-label="Tham gia CLB" data-label-on="Đã tham gia">
+                <i class="fa-solid ${isMember ? 'fa-circle-check' : 'fa-user-plus'}"></i>
+                <span>${isMember ? 'Đã tham gia' : 'Tham gia CLB'}</span>
+            </button>`;
+    },
+
+    /** Đồng bộ UI sau khi tham gia/rời CLB (không reload trang) */
+    async syncClubMembership(clubId, isMember, memberCount) {
+        document.querySelectorAll(`[data-club-toggle][data-club-id="${clubId}"]`).forEach(btn => {
+            btn.dataset.state = isMember ? 'joined' : 'none';
+            btn.classList.toggle('btn-success', isMember);
+            btn.classList.toggle('btn-primary', !isMember);
+            const icon = btn.querySelector('i');
+            const label = btn.querySelector('span');
+            if (icon) icon.className = `fa-solid ${isMember ? 'fa-circle-check' : 'fa-user-plus'}`;
+            if (label) label.textContent = isMember ? (btn.dataset.labelOn || 'Đã tham gia') : (btn.dataset.label || 'Tham gia CLB');
+        });
+
+        // Làm mới danh sách thành viên nếu trang chi tiết đang mở
+        const listBox = document.getElementById('clubMembersList');
+        if (listBox && listBox.dataset.clubId === String(clubId)) {
+            try {
+                const members = await API.getClubMembers(clubId);
+                this._clubMembersCache[clubId] = members;
+                listBox.innerHTML = this._clubMembersHTML(members);
+                memberCount = members.length;
+                document.querySelectorAll(`[data-club-roles="${clubId}"]`).forEach(el => {
+                    el.innerHTML = this._roleSummaryHTML(members);
+                });
+                document.querySelectorAll(`[data-club-preview="${clubId}"]`).forEach(el => {
+                    el.innerHTML = this._avatarStackHTML(members, 8);
+                });
+                document.querySelectorAll(`[data-club-preview-text="${clubId}"]`).forEach(el => {
+                    el.textContent = this._previewText(members);
+                });
+                const hint = document.querySelector(`[data-club-hint="${clubId}"]`);
+                if (hint) {
+                    hint.innerHTML = `<i class="fa-solid fa-circle-info"></i> ${isMember
+                        ? 'Bạn đã là thành viên. Bấm lại nút trên để rời CLB.'
+                        : 'Bấm để tham gia và xem danh sách thành viên.'}`;
+                }
+            } catch (e) { /* im lặng - dữ liệu cũ vẫn hiển thị được */ }
+        }
+
+        if (typeof memberCount === 'number') {
+            document.querySelectorAll(`.cm-count[data-club-id="${clubId}"]`).forEach(el => {
+                const span = el.querySelector('span') || el;
+                span.textContent = `${memberCount} thành viên`;
+            });
+            document.querySelectorAll(`.cm-tab-count[data-club-id="${clubId}"]`).forEach(el => {
+                el.textContent = memberCount;
+            });
+        }
+    },
+
+    // ---------- HELPER: người đăng ký sự kiện ----------
+    _participantsHTML(list, total) {
+        if (!list.length) {
+            return `<p class="empty" style="grid-column:1/-1">Chưa có ai đăng ký sự kiện này${API.isLoggedIn() ? ' - hãy là người đầu tiên!' : ''}</p>`;
+        }
+        const rest = (total || list.length) - list.length;
+        const rows = list.map(p => `
+            <div class="cm-row" onclick="App.navigate('member-profile',{id:${p.user_id}})">
+                ${this._avatarHTML(p, 48)}
+                <div style="flex:1;min-width:0">
+                    <div style="font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                        ${this._escapeHtml(p.full_name || p.username)}
+                        ${p.is_me ? '<span class="cm-me">Bạn</span>' : ''}
+                        ${p.attended ? '<span class="cm-chip" style="--chip:#10b981"><strong><i class="fa-solid fa-circle-check"></i></strong> Đã tham dự</span>' : ''}
+                    </div>
+                    <div style="font-size:12px;color:var(--text-mute)">
+                        <i class="fa-solid fa-id-card"></i> ${this._escapeHtml(p.student_id || 'Chưa có MSSV')}
+                        ${p.faculty ? ` · ${this._escapeHtml(p.faculty)}` : ''}
+                    </div>
+                    <div style="font-size:11px;color:var(--text-mute);margin-top:2px">
+                        <i class="fa-solid fa-clock"></i> Đăng ký ${formatDateTime(p.registered_at)}
+                    </div>
+                </div>
+                <i class="fa-solid fa-chevron-right" style="color:var(--text-mute)"></i>
+            </div>`).join('');
+        const more = rest > 0
+            ? `<p style="grid-column:1/-1;text-align:center;color:var(--text-mute);font-size:13px;padding:8px">
+                   <i class="fa-solid fa-ellipsis"></i> và ${rest} người đăng ký khác
+               </p>`
+            : '';
+        return rows + more;
+    },
+
+    _eventToggleButtonHTML(eventId, isRegistered, extraStyle = '') {
+        return `
+            <button class="btn ${isRegistered ? 'btn-success' : 'btn-primary'} ep-toggle-btn" style="width:100%;margin-top:${isRegistered ? '12px' : '0'};${extraStyle}"
+                data-event-toggle data-event-id="${eventId}" data-state="${isRegistered ? 'registered' : 'none'}"
+                data-label="Đăng ký tham gia" data-label-on="Đã đăng ký">
+                <i class="fa-solid ${isRegistered ? 'fa-circle-check' : 'fa-calendar-check'}"></i>
+                <span>${isRegistered ? 'Đã đăng ký' : 'Đăng ký tham gia'}</span>
+            </button>`;
+    },
+
+    /** Đồng bộ UI sau khi đăng ký/hủy đăng ký (không reload trang) */
+    async syncEventRegistration(eventId, isRegistered, count) {
+        document.querySelectorAll(`[data-event-toggle][data-event-id="${eventId}"]`).forEach(btn => {
+            btn.dataset.state = isRegistered ? 'registered' : 'none';
+            btn.classList.toggle('btn-success', isRegistered);
+            btn.classList.toggle('btn-primary', !isRegistered);
+            const icon = btn.querySelector('i');
+            const label = btn.querySelector('span');
+            if (icon) icon.className = `fa-solid ${isRegistered ? 'fa-circle-check' : 'fa-calendar-check'}`;
+            if (label) label.textContent = isRegistered ? (btn.dataset.labelOn || 'Đã đăng ký') : (btn.dataset.label || 'Đăng ký tham gia');
+        });
+
+        const listBox = document.getElementById('eventParticipantsList');
+        const open = !!listBox && listBox.dataset.eventId === String(eventId);
+
+        let payload = null;
+        if (open) {
+            try {
+                payload = await API.getEventParticipants(eventId);
+            } catch (e) { /* giữ dữ liệu cũ */ }
+        }
+
+        const total = payload?.total ?? (typeof count === 'number' ? count : null);
+        if (total !== null) {
+            document.querySelectorAll(`.ep-tab-count[data-event-id="${eventId}"]`).forEach(el => { el.textContent = total; });
+        }
+        if (typeof count === 'number') {
+            document.querySelectorAll(`.ep-count[data-event-id="${eventId}"] span`).forEach(el => {
+                el.textContent = `${count}${payload?.max_participants ? `/${payload.max_participants}` : ''} người`;
+            });
+            document.querySelectorAll(`.ep-count-text[data-event-id="${eventId}"]`).forEach(el => {
+                el.innerHTML = `<i class="fa-solid fa-users"></i> ${count}${payload?.max_participants ? `/${payload.max_participants}` : ''} người đã đăng ký`;
+            });
+        }
+
+        if (!open) return;
+
+        const list = payload?.participants || [];
+        listBox.innerHTML = this._participantsHTML(list, payload?.total ?? list.length);
+        this._eventParticipantsCache[eventId] = payload;
+        document.querySelectorAll(`[data-event-preview="${eventId}"]`).forEach(el => {
+            el.innerHTML = this._avatarStackHTML(list, 10);
+        });
+        document.querySelectorAll(`[data-event-preview-text="${eventId}"]`).forEach(el => {
+            el.textContent = this._previewText(list);
+        });
+        const hint = document.querySelector(`[data-event-hint="${eventId}"]`);
+        if (hint) {
+            hint.innerHTML = `<i class="fa-solid fa-circle-info"></i> ${isRegistered
+                ? 'Bấm lại nút trên để hủy đăng ký.'
+                : 'Bấm để đăng ký tham gia ngay.'}`;
+        }
+    },
+
 
     // ============= EVENTS =============
     async renderEvents(main, params = {}) {
@@ -899,17 +1193,24 @@ const Pages = {
     },
 
     async renderEventDetail(main, id) {
-        const event = await API.getEvent(id);
-        const comments = await API.getComments('event', id);
-        const reactions = await API.getReactions('event', id);
-        const ratings = await API.getEventRatings(id);
-        const gallery = await API.getEventGallery(id).catch(() => []);
+        const [event, comments, reactions, ratings, gallery, participants] = await Promise.all([
+            API.getEvent(id),
+            API.getComments('event', id),
+            API.getReactions('event', id),
+            API.getEventRatings(id),
+            API.getEventGallery(id).catch(() => []),
+            API.getEventParticipants(id).catch(() => null)
+        ]);
         const me = API.getUser();
         const reactionEmojis = { like: '👍', love: '❤️', haha: '😂', wow: '😮', sad: '😢', angry: '😠' };
         const isFull = event.max_participants && event.current_participants >= event.max_participants;
         const eventDate = new Date(event.start_time);
         const isPast = eventDate < new Date();
         const isRegistered = me && event.is_registered;
+        this._eventParticipantsCache = this._eventParticipantsCache || {};
+        this._eventParticipantsCache[id] = participants;
+        const list = participants?.participants || [];
+        const total = participants?.total ?? list.length;
 
         main.innerHTML = `
             <div class="detail-header">
@@ -923,8 +1224,10 @@ const Pages = {
                     <div class="detail-header-meta">
                         <div class="detail-header-meta-item"><i class="fa-solid fa-calendar"></i> ${formatDateTime(event.start_time)}</div>
                         <div class="detail-header-meta-item"><i class="fa-solid fa-location-dot"></i> ${this._escapeHtml(event.location || '—')}</div>
-                        <div class="detail-header-meta-item"><i class="fa-solid fa-users"></i> ${event.current_participants || 0}${event.max_participants ? `/${event.max_participants}` : ''} người</div>
+                        <div class="detail-header-meta-item ep-count" data-event-id="${id}"><i class="fa-solid fa-users"></i> <span>${event.current_participants || 0}${event.max_participants ? `/${event.max_participants}` : ''} người</span></div>
                     </div>
+                    ${list.length ? `
+                    <div class="cm-avatar-stack" data-event-preview="${id}">${this._avatarStackHTML(list, 10)}</div>` : ''}
                 </div>
             </div>
 
@@ -974,6 +1277,19 @@ const Pages = {
                             <i class="fa-solid fa-star"></i> Đánh giá sự kiện
                         </button>
                         ` : ''}
+                    </div>
+
+                    <!-- Người đã đăng ký -->
+                    <div class="detail-section">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+                            <h2 style="margin:0"><i class="fa-solid fa-user-group"></i> Người đã đăng ký (<span class="ep-tab-count" data-event-id="${id}">${total}</span>)</h2>
+                            ${isRegistered ? '<span class="cm-me" style="background:rgba(16,185,129,0.15);color:#059669">Bạn đã đăng ký</span>' : ''}
+                        </div>
+                        ${API.isLoggedIn() && !isPast && isFull && !isRegistered ? `
+                            <p style="font-size:13px;color:var(--text-mute);margin-bottom:12px"><i class="fa-solid fa-lock"></i> Sự kiện đã đầy, bạn không thể đăng ký nữa.</p>` : ''}
+                        <div class="grid grid-2" style="gap:12px" id="eventParticipantsList" data-event-id="${id}">
+                            ${this._participantsHTML(list, total)}
+                        </div>
                     </div>
 
                     <!-- Reactions bar -->
@@ -1037,31 +1353,40 @@ const Pages = {
                                 <i class="fa-solid fa-clock-rotate-left" style="font-size:32px;color:var(--text-mute)"></i>
                                 <p style="margin-top:8px;color:var(--text-mute)">Sự kiện đã diễn ra</p>
                             </div>
-                        ` : isRegistered ? `
+                            ${isRegistered ? `<p style="text-align:center;font-size:13px;color:#059669;margin-top:8px"><i class="fa-solid fa-circle-check"></i> Bạn đã tham gia sự kiện này</p>` : ''}
+                        ` : `
+                            ${isRegistered ? `
                             <div class="card" style="background:linear-gradient(135deg, rgba(16,185,129,0.1), rgba(52,211,153,0.1));border:1px solid rgba(16,185,129,0.3)">
                                 <div style="text-align:center;color:#059669">
                                     <i class="fa-solid fa-circle-check" style="font-size:32px"></i>
                                     <p style="font-weight:600;margin-top:8px">Bạn đã đăng ký</p>
                                 </div>
-                                <button class="btn btn-secondary" id="unregBtn" style="width:100%;margin-top:12px">
-                                    <i class="fa-solid fa-xmark"></i> Hủy đăng ký
-                                </button>
-                            </div>
-                        ` : isFull ? `
+                            </div>` : isFull ? `
                             <div class="card" style="text-align:center">
                                 <i class="fa-solid fa-user-slash" style="font-size:32px;color:var(--warning)"></i>
                                 <p style="margin-top:8px;font-weight:600">Đã đầy</p>
                                 <p style="font-size:13px;color:var(--text-mute)">Sự kiện đã đạt giới hạn đăng ký</p>
-                            </div>
-                        ` : `
-                            <button class="btn btn-primary" id="regBtn" style="width:100%">
-                                <i class="fa-solid fa-check"></i> Đăng ký tham gia
-                            </button>
+                            </div>` : ''}
+                            ${isFull && !isRegistered ? '' : this._eventToggleButtonHTML(id, isRegistered)}
+                            <p style="text-align:center;font-size:13px;color:var(--text-mute);margin-top:12px" data-event-hint="${id}">
+                                <i class="fa-solid fa-circle-info"></i>
+                                ${isRegistered ? 'Bấm lại nút trên để hủy đăng ký.' : (isFull ? 'Chờ sự kiện khác hoặc liên hệ ban tổ chức.' : 'Bấm để đăng ký tham gia ngay.')}
+                            </p>
                         `}
-                        <p style="text-align:center;font-size:13px;color:var(--text-mute);margin-top:12px">
+                        <p class="ep-count-text" style="text-align:center;font-size:13px;color:var(--text-mute);margin-top:12px" data-event-id="${id}">
                             <i class="fa-solid fa-users"></i> ${event.current_participants || 0}${event.max_participants ? `/${event.max_participants}` : ''} người đã đăng ký
                         </p>
                     ` : `<a class="btn btn-primary" data-page="login" style="width:100%">Đăng nhập để đăng ký</a>`}
+
+                    ${list.length ? `
+                    <div class="card" style="margin-top:12px">
+                        <h4 style="margin-bottom:12px"><i class="fa-solid fa-user-group"></i> Người sẽ tham gia (${total})</h4>
+                        <div class="cm-avatar-stack" data-event-preview="${id}">${this._avatarStackHTML(list, 10)}</div>
+                        <p style="font-size:12px;color:var(--text-mute);margin-top:10px" data-event-preview-text="${id}">${this._previewText(list)}</p>
+                        <button class="btn btn-sm btn-ghost" style="width:100%;margin-top:8px" data-event-participants-jump>
+                            <i class="fa-solid fa-arrow-right"></i> Xem danh sách đầy đủ
+                        </button>
+                    </div>` : ''}
 
                     <div class="card" style="margin-top:12px">
                         <h4 style="margin-bottom:12px"><i class="fa-solid fa-circle-info"></i> Thông tin</h4>
@@ -1082,22 +1407,12 @@ const Pages = {
             </div>
         `;
 
-        // Register / unregister
-        document.getElementById('regBtn')?.addEventListener('click', async () => {
-            try {
-                const r = await API.registerEvent(id);
-                showToast(r.message || 'Đăng ký thành công!', 'success');
-                if (r.achievements_unlocked?.length) this._showAchievementUnlock(r.achievements_unlocked);
-                App.navigate('event-detail', { id });
-            } catch (e) { showToast(e.message, 'error'); }
-        });
-        document.getElementById('unregBtn')?.addEventListener('click', async () => {
-            if (!confirm('Hủy đăng ký sự kiện này?')) return;
-            try {
-                await API.unregisterEvent(id);
-                showToast('Đã hủy đăng ký', 'success');
-                App.navigate('event-detail', { id });
-            } catch (e) { showToast(e.message, 'error'); }
+        // Nút "Xem danh sách đầy đủ" -> cuộn tới khu vực người đã đăng ký
+        document.querySelectorAll('[data-event-participants-jump]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.getElementById('eventParticipantsList')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
         });
 
         // Reactions
@@ -1381,123 +1696,6 @@ const Pages = {
         }
     },
 
-    // ============= AI ASSISTANT PAGE =============
-    async renderAIAssistant(main) {
-        let status = { available: false };
-        try { status = await API.getAiStatus(); } catch (e) {}
-
-        main.innerHTML = `
-            <section class="section" style="background:var(--gradient-hero);color:white;padding:60px 0">
-                <div class="container" style="text-align:center">
-                    <div style="width:80px;height:80px;background:var(--gradient-ai);border-radius:50%;display:grid;place-items:center;margin:0 auto 20px;font-size:40px;box-shadow:var(--shadow-glow)">
-                        <i class="fa-solid fa-robot"></i>
-                    </div>
-                    <h1 style="color:white;font-size:42px">Trợ lý AI Thông minh</h1>
-                    <p style="color:rgba(255,255,255,0.8);max-width:600px;margin:12px auto">
-                        Trò chuyện với AI để được tư vấn về CLB, sự kiện, hoạt động sinh viên
-                    </p>
-                    <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.1);padding:8px 16px;border-radius:var(--radius-full);margin-top:16px">
-                        <span style="width:8px;height:8px;background:${status.available ? '#10b981' : '#f59e0b'};border-radius:50%;box-shadow:0 0 6px ${status.available ? '#10b981' : '#f59e0b'}"></span>
-                        <span style="font-size:13px">${status.available ? 'Đang hoạt động (Ollama)' : 'Hoạt động (chế độ thông minh)'}</span>
-                    </div>
-                </div>
-            </section>
-
-            <section class="section">
-                <div class="container">
-                    <div style="max-width:800px;margin:0 auto">
-                        <div id="aiPageMessages" class="card" style="min-height:400px;display:flex;flex-direction:column">
-                            <div class="ai-message bot" style="margin-bottom:16px">
-                                <div class="ai-msg-avatar"><i class="fa-solid fa-robot"></i></div>
-                                <div class="ai-msg-bubble">
-                                    👋 Xin chào! Tôi là trợ lý AI của CLB Hub. Tôi có thể giúp bạn tìm CLB, sự kiện, tư vấn hoạt động ngoại khóa phù hợp. Bạn muốn hỏi gì?
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-2" style="margin-top:24px">
-                            <button class="ai-page-sug card" data-q="Có những CLB nào nổi bật?">
-                                <i class="fa-solid fa-star" style="color:var(--primary)"></i>
-                                <strong>CLB nổi bật</strong>
-                                <p style="font-size:13px;color:var(--text-mute);margin-top:4px">Xem các CLB được yêu thích nhất</p>
-                            </button>
-                            <button class="ai-page-sug card" data-q="Sự kiện sắp tới">
-                                <i class="fa-solid fa-calendar" style="color:var(--secondary)"></i>
-                                <strong>Sự kiện sắp tới</strong>
-                                <p style="font-size:13px;color:var(--text-mute);margin-top:4px">Khám phá các sự kiện hấp dẫn</p>
-                            </button>
-                            <button class="ai-page-sug card" data-q="Tư vấn CLB phù hợp với tôi">
-                                <i class="fa-solid fa-lightbulb" style="color:var(--warning)"></i>
-                                <strong>Tư vấn cá nhân</strong>
-                                <p style="font-size:13px;color:var(--text-mute);margin-top:4px">AI sẽ gợi ý CLB phù hợp với bạn</p>
-                            </button>
-                            <button class="ai-page-sug card" data-q="Làm sao để đăng ký tham gia CLB?">
-                                <i class="fa-solid fa-circle-info" style="color:var(--accent)"></i>
-                                <strong>Hướng dẫn tham gia</strong>
-                                <p style="font-size:13px;color:var(--text-mute);margin-top:4px">Các bước đăng ký tham gia CLB</p>
-                            </button>
-                        </div>
-
-                        <form id="aiPageForm" style="display:flex;gap:12px;margin-top:24px">
-                            <input type="text" id="aiPageInput" class="form-input" placeholder="Nhập câu hỏi cho AI..." style="flex:1">
-                            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> Gửi</button>
-                        </form>
-                    </div>
-                </div>
-            </section>
-        `;
-
-        const handleAsk = async (message) => {
-            const messagesEl = document.getElementById('aiPageMessages');
-
-            // Append user message
-            messagesEl.insertAdjacentHTML('beforeend', `
-                <div class="ai-message user" style="margin-bottom:16px;align-self:flex-end;display:flex;flex-direction:row-reverse;gap:8px;max-width:80%">
-                    <div class="ai-msg-avatar"><i class="fa-solid fa-user"></i></div>
-                    <div class="ai-msg-bubble" style="background:var(--gradient-ai);color:white">${message}</div>
-                </div>
-            `);
-
-            // Loading
-            const loadingEl = document.createElement('div');
-            loadingEl.className = 'ai-message bot';
-            loadingEl.style.marginBottom = '16px';
-            loadingEl.innerHTML = `
-                <div class="ai-msg-avatar"><i class="fa-solid fa-robot"></i></div>
-                <div class="ai-msg-bubble"><i class="fa-solid fa-ellipsis fa-bounce"></i> Đang suy nghĩ...</div>
-            `;
-            messagesEl.appendChild(loadingEl);
-            messagesEl.scrollTop = messagesEl.scrollHeight;
-
-            try {
-                const r = await API.chatWithAi(message);
-                loadingEl.remove();
-                messagesEl.insertAdjacentHTML('beforeend', `
-                    <div class="ai-message bot" style="margin-bottom:16px">
-                        <div class="ai-msg-avatar"><i class="fa-solid fa-robot"></i></div>
-                        <div class="ai-msg-bubble">${r.reply.replace(/\n/g, '<br>')}</div>
-                    </div>
-                `);
-            } catch (e) {
-                loadingEl.remove();
-                showToast(e.message, 'error');
-            }
-            messagesEl.scrollTop = messagesEl.scrollHeight;
-        };
-
-        main.querySelectorAll('.ai-page-sug').forEach(b => {
-            b.addEventListener('click', () => handleAsk(b.dataset.q));
-        });
-        main.querySelector('#aiPageForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const input = document.getElementById('aiPageInput');
-            const msg = input.value.trim();
-            if (!msg) return;
-            input.value = '';
-            handleAsk(msg);
-        });
-    },
-
     // ============= ADMIN DASHBOARD (QUẢN TRỊ) =============
     async renderAdmin(main) {
         if (!API.isLoggedIn() || !API.isAdmin()) {
@@ -1635,7 +1833,7 @@ const Pages = {
         if (catCanvas) {
             API.getCategories().then(cats => {
                 const colors = ['#6366f1', '#ec4899', '#14b8a6', '#f59e0b', '#3b82f6', '#10b981'];
-                new Chart(catCanvas, {
+                safeChart(catCanvas, {
                     type: 'doughnut',
                     data: {
                         labels: cats.map(c => c.name),
@@ -1660,7 +1858,7 @@ const Pages = {
         const actCanvas = document.getElementById('activityChart');
         if (actCanvas) {
             const months = ['T4', 'T5', 'T6', 'T7', 'T8', 'T9'];
-            new Chart(actCanvas, {
+            safeChart(actCanvas, {
                 type: 'line',
                 data: {
                     labels: months,
@@ -2102,27 +2300,47 @@ const Pages = {
         const year = params.year || new Date().getFullYear();
         const data = await API.getEventsCalendar(month, year);
 
-        const firstDay = new Date(year, month - 1, 1).getDay();
+        const firstDay = (new Date(year, month - 1, 1).getDay() + 6) % 7;
         const daysInMonth = new Date(year, month, 0).getDate();
         const monthName = `Tháng ${month}/${year}`;
 
         // Build calendar grid
         let calendar = '';
+        const slots = [
+            ['Sáng', 'sang', 12],
+            ['Chiều', 'chieu', 18],
+            ['Tối', 'toi', 24]
+        ];
+        const slotOf = (time) => {
+            const h = parseInt(time, 10);
+            if (isNaN(h)) return 'toi';
+            if (h < 12) return 'sang';
+            if (h < 18) return 'chieu';
+            return 'toi';
+        };
+        const CELL_MAX = 3;
         for (let i = 0; i < firstDay; i++) calendar += '<div class="cal-day empty"></div>';
         for (let d = 1; d <= daysInMonth; d++) {
-            const events = data.events_by_day[d] || [];
+            const dayEvents = (data.events_by_day[d] || []).filter(e => parseInt(e.time, 10) <= 21);
             const today = d === new Date().getDate() && month === new Date().getMonth() + 1 && year === new Date().getFullYear();
-            calendar += `
-                <div class="cal-day ${today ? 'today' : ''}">
-                    <div class="cal-day-num">${d}</div>
-                    ${events.slice(0, 3).map(e => `
-                        <div class="cal-event" onclick="App.navigate('event-detail',{id:${e.id}})">
-                            ${e.time} ${e.title}
-                        </div>
-                    `).join('')}
-                    ${events.length > 3 ? `<div class="cal-more">+${events.length - 3} sự kiện</div>` : ''}
-                </div>
-            `;
+            let cell = `<div class="cal-day-num">${d}</div>`;
+            let shown = 0;
+            for (const [label, key, bound] of slots) {
+                const evs = dayEvents.filter(e => slotOf(e.time) === key);
+                if (!evs.length || shown >= CELL_MAX) continue;
+                cell += `<div class="cal-slot slot-${key}"><span class="cal-slot-dot"></span>${label}</div>`;
+                for (const e of evs) {
+                    if (shown >= CELL_MAX) break;
+                    shown++;
+                    cell += `
+                        <div class="cal-event cal-${key}" onclick="App.navigate('event-detail',{id:${e.id}})">
+                            <span class="cal-e-time">${e.time}${e.end_time ? '–' + e.end_time : ''}</span>
+                            <span class="cal-e-title">${this._escapeHtml(e.title)}</span>
+                        </div>`;
+                }
+            }
+            if (dayEvents.length > shown) cell += `<div class="cal-more">+${dayEvents.length - shown} sự kiện</div>`;
+            calendar += `<div class="cal-day ${today ? 'today' : ''}">${cell}</div>`;
         }
 
         main.innerHTML = `
@@ -2145,13 +2363,13 @@ const Pages = {
                     </div>
 
                     <div class="calendar-grid">
-                        <div class="cal-header">CN</div>
                         <div class="cal-header">T2</div>
                         <div class="cal-header">T3</div>
                         <div class="cal-header">T4</div>
                         <div class="cal-header">T5</div>
                         <div class="cal-header">T6</div>
                         <div class="cal-header">T7</div>
+                        <div class="cal-header">CN</div>
                         ${calendar}
                     </div>
                 </div>
@@ -2180,14 +2398,18 @@ const Pages = {
         const data = await API.myTimeline(90);
 
         main.innerHTML = `
-            <section class="section">
+            <section class="section timeline-hero" style="background:linear-gradient(135deg, #312e81 0%, #4c1d95 50%, #86198f 100%);color:white;padding:52px 0">
                 <div class="container" style="max-width:800px">
                     <div class="section-header">
                         <span class="section-eyebrow">Hoạt động của tôi</span>
                         <h2 class="section-title">Dòng thời gian</h2>
                         <p class="section-subtitle">${data.stats.clubs_joined} CLB · ${data.stats.events_registered} sự kiện · ${data.stats.posts_created} bài viết trong 90 ngày</p>
                     </div>
+                </div>
+            </section>
 
+            <section class="section">
+                <div class="container" style="max-width:800px">
                     <div class="timeline">
                         ${data.items.length ? data.items.map(item => `
                             <div class="timeline-item">
@@ -2714,7 +2936,7 @@ const Pages = {
         const isAdmin = API.isAdmin();
 
         main.innerHTML = `
-            <section class="section" style="background:linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);color:white;padding:48px 0">
+            <section class="section settings-hero" style="background:linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);color:white;padding:48px 0">
                 <div class="container">
                     <div style="display:flex;align-items:center;gap:16px">
                         <div style="width:64px;height:64px;background:rgba(255,255,255,0.1);border-radius:16px;display:grid;place-items:center;font-size:32px">
@@ -3222,7 +3444,7 @@ const Pages = {
         const certs = await API.getMyCertificates();
 
         main.innerHTML = `
-            <section class="section" style="background:linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);color:white;padding:60px 0">
+            <section class="section cert-hero" style="background:linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);color:white;padding:60px 0">
                 <div class="container" style="text-align:center">
                     <div style="width:80px;height:80px;background:rgba(255,255,255,0.2);border-radius:50%;display:grid;place-items:center;margin:0 auto 20px;font-size:40px;backdrop-filter:blur(10px)">
                         <i class="fa-solid fa-certificate"></i>
@@ -3239,7 +3461,7 @@ const Pages = {
                     ${certs.length ? `
                     <div class="grid grid-2 stagger">
                         ${certs.map(c => `
-                            <div class="card" style="border:2px solid var(--warning);background:linear-gradient(135deg, rgba(251,191,36,0.05), rgba(245,158,11,0.05))">
+                            <div class="card cert-card" style="border:2px solid var(--warning);background:linear-gradient(135deg, rgba(251,191,36,0.05), rgba(245,158,11,0.05))">
                                 <div style="display:flex;align-items:start;gap:16px">
                                     <div style="width:60px;height:60px;background:linear-gradient(135deg,#fbbf24,#d97706);border-radius:14px;display:grid;place-items:center;color:white;font-size:28px;flex-shrink:0">
                                         <i class="fa-solid fa-award"></i>
@@ -3459,7 +3681,7 @@ const Pages = {
         if (typeof Chart !== 'undefined') {
             const colors = ['#6366f1', '#ec4899', '#14b8a6', '#f59e0b', '#3b82f6', '#10b981', '#a855f7', '#ef4444'];
 
-            new Chart(document.getElementById('facultyCanvas'), {
+            safeChart('facultyCanvas', {
                 type: 'bar',
                 data: {
                     labels: data.by_faculty.map(f => f.faculty.substring(0, 15)),
@@ -3473,7 +3695,7 @@ const Pages = {
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
 
-            new Chart(document.getElementById('categoryCanvas'), {
+            safeChart('categoryCanvas', {
                 type: 'doughnut',
                 data: {
                     labels: data.by_category.map(c => c.category),
@@ -3543,7 +3765,7 @@ const Pages = {
                     <div class="grid grid-4 stagger">
                         <div class="card" style="text-align:center">
                             <div style="font-size:48px;margin-bottom:12px">🐍</div>
-                            <h4>Python + FastAPI</h4>
+                            <h4>FastAPI</h4>
                             <p style="color:var(--text-mute);font-size:13px;margin-top:8px">Backend hiệu năng cao, async</p>
                         </div>
                         <div class="card" style="text-align:center">
@@ -3553,13 +3775,13 @@ const Pages = {
                         </div>
                         <div class="card" style="text-align:center">
                             <div style="font-size:48px;margin-bottom:12px">🗄️</div>
-                            <h4>SQLite + SQLAlchemy</h4>
-                            <p style="color:var(--text-mute);font-size:13px;margin-top:8px">ORM mạnh mẽ, dễ scale</p>
+                            <h4>PostgreSQL</h4>
+                            <p style="color:var(--text-mute);font-size:13px;margin-top:8px">CSDL quan hệ mạnh mẽ, sẵn sàng scale</p>
                         </div>
                         <div class="card" style="text-align:center">
-                            <div style="font-size:48px;margin-bottom:12px">🎨</div>
-                            <h4>Vanilla JS</h4>
-                            <p style="color:var(--text-mute);font-size:13px;margin-top:8px">SPA thuần, zero dependency</p>
+                            <div style="font-size:48px;margin-bottom:12px">🔐</div>
+                            <h4>JWT Auth</h4>
+                            <p style="color:var(--text-mute);font-size:13px;margin-top:8px">Xác thực bảo mật JWT + Bcrypt, phân quyền chi tiết</p>
                         </div>
                     </div>
                 </div>
@@ -3570,10 +3792,20 @@ const Pages = {
     // ============= DASHBOARD =============
     async renderDashboard(main) {
         if (!API.isLoggedIn()) { App.navigate('login'); return; }
-        const [overview, dashboard] = await Promise.all([
+        const [overview, dashboard, trends, categories, engagement] = await Promise.all([
             API.getOverview(),
-            API.getDashboard()
+            API.getDashboard(),
+            API.getStatsTrends(7),
+            API.getStatsCategories(),
+            API.getStatsEngagement(7)
         ]);
+
+        (this._dashboardCharts || []).forEach(c => { try { c.destroy(); } catch (e) {} });
+        this._dashboardCharts = [];
+
+        const catLabels = (categories.categories || []).map(c => c || 'Khác');
+        const catColors = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
+        const hasChart = typeof Chart !== 'undefined';
 
         main.innerHTML = `
             <section class="section">
@@ -3583,7 +3815,7 @@ const Pages = {
                         <p class="section-subtitle" style="margin:0">Chào mừng bạn quay lại!</p>
                     </div>
 
-                    <div class="grid grid-4" style="margin-bottom:40px">
+                    <div class="grid grid-4" style="margin-bottom:24px">
                         <div class="stat-card">
                             <div class="stat-icon"><i class="fa-solid fa-people-group"></i></div>
                             <div class="stat-info">
@@ -3611,6 +3843,49 @@ const Pages = {
                                 <h3>${overview.total_clubs}</h3>
                                 <p>Tổng CLB hệ thống</p>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="card" style="margin-bottom:24px">
+                        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+                            <h3 style="margin:0"><i class="fa-solid fa-chart-line" style="color:var(--primary)"></i> Hoạt động gần đây</h3>
+                            <div class="period-tabs" style="display:inline-flex;background:var(--bg-soft);border-radius:var(--radius-full);padding:3px">
+                                ${[7, 30, 90].map(d => `<button class="btn btn-sm period-tab${d === 7 ? ' btn-primary' : ''}" data-days="${d}" style="border-radius:var(--radius-full)">${d} ngày</button>`).join('')}
+                            </div>
+                        </div>
+                        <div style="position:relative;height:280px">
+                            <canvas id="dashboardTrendChart"></canvas>
+                        </div>
+                        <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--text-mute)">
+                            <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#8b5cf6;margin-right:5px"></span>Sự kiện</span>
+                            <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#06b6d4;margin-right:5px"></span>Bài viết</span>
+                            <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ec4899;margin-right:5px"></span>Đăng ký sự kiện</span>
+                            <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10b981;margin-right:5px"></span>Bình luận</span>
+                            <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f59e0b;margin-right:5px"></span>Reaction</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-2" style="margin-bottom:24px">
+                        <div class="card">
+                            <h3 style="margin-bottom:12px"><i class="fa-solid fa-chart-pie" style="color:var(--primary)"></i> CLB theo danh mục</h3>
+                            <div style="position:relative;height:220px">
+                                <canvas id="dashboardCategoryChart"></canvas>
+                            </div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:14px">
+                            ${(engagement.totals ? [
+                                ['<i class="fa-solid fa-comment"></i> Bình luận mới', engagement.totals.comments, 'var(--primary)'],
+                                ['<i class="fa-solid fa-heart"></i> Reaction mới', engagement.totals.reactions, 'var(--warning)'],
+                                ['<i class="fa-solid fa-newspaper"></i> Bài viết mới', engagement.totals.posts, 'var(--secondary)']
+                            ] : []).map(([label, val, color]) => `
+                                <div class="stat-card" style="margin:0">
+                                    <div class="stat-icon" style="background:${color}22;color:${color}">${label.split(' ')[0]}</div>
+                                    <div class="stat-info">
+                                        <h3>${val}</h3>
+                                        <p>${label.split(' ').slice(1).join(' ')}</p>
+                                    </div>
+                                </div>
+                            `).join('')}
                         </div>
                     </div>
 
@@ -3651,6 +3926,67 @@ const Pages = {
                 </div>
             </section>
         `;
+
+        if (hasChart) {
+            const gridColor = 'rgba(0,0,0,0.06)';
+            const trendChart = safeChart('dashboardTrendChart', {
+                type: 'line',
+                data: {
+                    labels: trends.labels || [],
+                    datasets: [
+                        { label: 'Sự kiện', data: (trends.series || {}).events || [], borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.16)', tension: 0.35, fill: true, pointRadius: 3, pointBackgroundColor: '#fff', pointBorderWidth: 2, borderWidth: 2.5 },
+                        { label: 'Bài viết', data: (trends.series || {}).posts || [], borderColor: '#06b6d4', backgroundColor: 'rgba(6,182,212,0.14)', tension: 0.35, fill: true, pointRadius: 3, pointBackgroundColor: '#fff', pointBorderWidth: 2, borderWidth: 2.5 },
+                        { label: 'Đăng ký', data: (trends.series || {}).registrations || [], borderColor: '#ec4899', backgroundColor: 'rgba(236,72,153,0.12)', tension: 0.35, fill: true, pointRadius: 3, pointBackgroundColor: '#fff', pointBorderWidth: 2, borderWidth: 2.5 },
+                        { label: 'Bình luận', data: (engagement.series || {}).comments || [], borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.12)', tension: 0.35, fill: true, pointRadius: 3, pointBackgroundColor: '#fff', pointBorderWidth: 2, borderWidth: 2.5 },
+                        { label: 'Reaction', data: (engagement.series || {}).reactions || [], borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.12)', tension: 0.35, fill: true, pointRadius: 3, pointBackgroundColor: '#fff', pointBorderWidth: 2, borderWidth: 2.5 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: gridColor }, ticks: { maxTicksLimit: Math.min(12, (trends.labels || []).length), font: { size: 10 } } },
+                        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { precision: 0 } }
+                    }
+                }
+            });
+            this._dashboardCharts.push(trendChart);
+
+            const idx = Math.max(0, catLabels.length - catColors.length);
+            const catChart = safeChart('dashboardCategoryChart', {
+                type: 'doughnut',
+                data: {
+                    labels: catLabels,
+                    datasets: [{ data: categories.clubs || [], backgroundColor: catColors.slice(idx), borderRadius: 8, spacing: 2, borderWidth: 2, borderColor: getComputedStyle(document.body).getPropertyValue('--surface').trim() || '#fff' }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
+                }
+            });
+            this._dashboardCharts.push(catChart);
+
+            main.querySelectorAll('.period-tab').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const days = parseInt(btn.dataset.days, 10);
+                    main.querySelectorAll('.period-tab').forEach(b => { b.classList.remove('btn-primary'); });
+                    btn.classList.add('btn-primary');
+                    const [nt, ne] = await Promise.all([API.getStatsTrends(days), API.getStatsEngagement(days)]);
+                    const ds = [
+                        { d: trendChart.data.datasets[0], k: (nt.series || {}).events },
+                        { d: trendChart.data.datasets[1], k: (nt.series || {}).posts },
+                        { d: trendChart.data.datasets[2], k: (nt.series || {}).registrations },
+                        { d: trendChart.data.datasets[3], k: (ne.series || {}).comments },
+                        { d: trendChart.data.datasets[4], k: (ne.series || {}).reactions }
+                    ];
+                    trendChart.data.labels = nt.labels || [];
+                    ds.forEach(({ d, k }) => { d.data = k || []; });
+                    trendChart.update();
+                });
+            });
+        } else {
+            main.querySelector('.card') && (main.querySelector('.card').style.display = 'none');
+        }
     },
 
     // ============= PROFILE (CÁ NHÂN - NÂNG CẤP) =============
@@ -4331,18 +4667,35 @@ const Pages = {
 
     // ============= HELPERS =============
     clubCard(c) {
+        const founded = c.founded_date ? formatDate(c.founded_date).split('/')[2] : '';
+        const room = c.meeting_room || '';
+        const isMember = !!c.is_member;
         return `
-            <div class="club-card" onclick="App.navigate('club-detail',{id:${c.id}})">
-                <div class="club-banner ${getCategoryClass(c.category)}">
-                    <span style="font-size:64px">${getCategoryEmoji(c.category)}</span>
-                </div>
+            <div class="club-card" onclick="if(event.target.closest('[data-club-toggle]'))return;App.navigate('club-detail',{id:${c.id}})">
+                <div class="club-accent ${getCategoryClass(c.category)}"></div>
                 <div class="club-card-body">
-                    <span class="club-category">${getCategoryEmoji(c.category)} ${c.category}</span>
-                    <h3 class="club-name">${c.name}</h3>
+                    <div class="club-top">
+                        <div class="club-cat-icon ${getCategoryClass(c.category)}"><i class="fa-solid ${getCategoryIcon(c.category)}"></i></div>
+                        <span class="club-category">${this._escapeHtml(c.category)}</span>
+                        ${c.ai_tags ? '<span class="club-ai"><i class="fa-solid fa-wand-magic-sparkles"></i> AI</span>' : ''}
+                    </div>
+                    <h3 class="club-name">${this._escapeHtml(c.name)}</h3>
                     <p class="club-desc">${c.description || 'Chưa có mô tả'}</p>
+                    <div class="club-stats">
+                        <span class="club-stat"><i class="fa-solid fa-users"></i> ${c.member_count}</span>
+                        ${founded ? `<span class="club-stat"><i class="fa-solid fa-calendar-days"></i> ${founded}</span>` : ''}
+                        ${room ? `<span class="club-stat club-stat-room" title="${this._escapeHtml(room)}"><i class="fa-solid fa-location-dot"></i> ${this._escapeHtml(room)}</span>` : ''}
+                    </div>
                     <div class="club-meta">
-                        <span class="club-members"><i class="fa-solid fa-users"></i> ${c.member_count} thành viên</span>
-                        ${c.ai_tags ? '<span class="club-ai-tag"><i class="fa-solid fa-robot"></i> AI</span>' : ''}
+                        <span class="club-view">Xem chi tiết <i class="fa-solid fa-arrow-right"></i></span>
+                        ${API.isLoggedIn() ? `
+                        <button class="btn btn-sm ${isMember ? 'btn-success' : 'btn-primary'} cm-toggle-btn"
+                            data-club-toggle data-club-id="${c.id}" data-state="${isMember ? 'joined' : 'none'}"
+                            data-label="Tham gia" data-label-on="Đã tham gia"
+                            title="${isMember ? 'Bấm để rời CLB' : 'Tham gia CLB này'}">
+                            <i class="fa-solid ${isMember ? 'fa-circle-check' : 'fa-user-plus'}"></i>
+                            <span>${isMember ? 'Đã tham gia' : 'Tham gia'}</span>
+                        </button>` : ''}
                     </div>
                 </div>
             </div>
@@ -4351,8 +4704,12 @@ const Pages = {
 
     eventCard(e) {
         const date = new Date(e.start_time);
+        const isPast = date < new Date();
+        const isFull = e.max_participants && e.current_participants >= e.max_participants;
+        const isRegistered = !!e.is_registered;
+        const canRegister = API.isLoggedIn() && !isPast && !isFull;
         return `
-            <div class="event-card" onclick="App.navigate('event-detail',{id:${e.id}})">
+            <div class="event-card" onclick="if(event.target.closest('[data-event-toggle]'))return;App.navigate('event-detail',{id:${e.id}})">
                 <div class="event-banner">
                     <div class="event-date-badge">
                         <div class="event-date-day">${date.getDate()}</div>
@@ -4361,14 +4718,22 @@ const Pages = {
                 </div>
                 <div class="event-body">
                     <span class="club-category">${e.status}</span>
-                    <h3 class="event-title" style="margin-top:8px">${e.title}</h3>
+                    <h3 class="event-title" style="margin-top:8px">${this._escapeHtml(e.title)}</h3>
                     <div class="event-meta">
                         <div class="event-meta-item"><i class="fa-solid fa-clock"></i> ${formatDateTime(e.start_time)}</div>
-                        <div class="event-meta-item"><i class="fa-solid fa-location-dot"></i> ${e.location}</div>
+                        <div class="event-meta-item"><i class="fa-solid fa-location-dot"></i> ${this._escapeHtml(e.location || '—')}</div>
                     </div>
                     <div class="event-footer">
-                        <span style="font-size:12px;color:var(--text-mute)">${e.current_participants} người tham gia</span>
+                        <span style="font-size:12px;color:var(--text-mute)">${e.current_participants}${e.max_participants ? `/${e.max_participants}` : ''} người tham gia</span>
                         ${e.ai_success_score ? `<span class="event-ai-score"><i class="fa-solid fa-chart-line"></i> AI: ${Math.round(e.ai_success_score)}%</span>` : ''}
+                        ${canRegister ? `
+                        <button class="btn btn-sm ${isRegistered ? 'btn-success' : 'btn-primary'} ep-toggle-btn"
+                            data-event-toggle data-event-id="${e.id}" data-state="${isRegistered ? 'registered' : 'none'}"
+                            data-label="Đăng ký" data-label-on="Đã đăng ký"
+                            title="${isRegistered ? 'Bấm để hủy đăng ký' : 'Đăng ký sự kiện này'}">
+                            <i class="fa-solid ${isRegistered ? 'fa-circle-check' : 'fa-calendar-check'}"></i>
+                            <span>${isRegistered ? 'Đã đăng ký' : 'Đăng ký'}</span>
+                        </button>` : ''}
                     </div>
                 </div>
             </div>
@@ -4384,6 +4749,84 @@ const Pages = {
         });
     }
 };
+
+// ============= GLOBAL ACTIONS: tham gia CLB / đăng ký sự kiện =============
+// Dùng event delegation nên hoạt động trên mọi trang (danh sách, chi tiết,
+// trang chủ) kể cả sau khi nội dung được render lại.
+function setTogglePending(btn, pending) {
+    const label = btn.querySelector('span');
+    if (pending) {
+        if (label && label.dataset.prevLabel === undefined) label.dataset.prevLabel = label.textContent;
+        if (label) label.textContent = 'Đang xử lý...';
+        btn.disabled = true;
+        btn.classList.add('is-pending');
+    } else {
+        btn.disabled = false;
+        btn.classList.remove('is-pending');
+        if (label && label.dataset.prevLabel !== undefined) {
+            label.textContent = label.dataset.prevLabel;
+            delete label.dataset.prevLabel;
+        }
+    }
+}
+
+document.addEventListener('click', async (e) => {
+    const clubBtn = e.target.closest('[data-club-toggle]');
+    if (clubBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!API.isLoggedIn()) {
+            showToast('Vui lòng đăng nhập để tham gia CLB', 'warning');
+            return;
+        }
+        const clubId = clubBtn.dataset.clubId;
+        const joined = clubBtn.dataset.state === 'joined';
+        if (joined && !confirm('Bạn có chắc muốn rời CLB này?')) return;
+        setTogglePending(clubBtn, true);
+        try {
+            const r = joined ? await API.leaveClub(clubId) : await API.joinClub(clubId);
+            showToast(r.message || (joined ? 'Đã rời CLB' : 'Đã tham gia CLB'), 'success');
+            if (!joined && r.achievements_unlocked?.length) Pages._showAchievementUnlock(r.achievements_unlocked);
+            await Pages.syncClubMembership(clubId, !!r.is_member, r.member_count);
+        } catch (err) {
+            showToast(err.message || 'Không thể xử lý, vui lòng thử lại', 'error');
+            setTogglePending(clubBtn, false);
+            return;
+        }
+        const label = clubBtn.querySelector('span');
+        if (label) delete label.dataset.prevLabel;
+        clubBtn.disabled = false;
+        clubBtn.classList.remove('is-pending');
+        return;
+    }
+
+    const eventBtn = e.target.closest('[data-event-toggle]');
+    if (eventBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!API.isLoggedIn()) {
+            showToast('Vui lòng đăng nhập để đăng ký sự kiện', 'warning');
+            return;
+        }
+        const eventId = eventBtn.dataset.eventId;
+        const registered = eventBtn.dataset.state === 'registered';
+        if (registered && !confirm('Hủy đăng ký sự kiện này?')) return;
+        setTogglePending(eventBtn, true);
+        try {
+            const r = registered ? await API.unregisterEvent(eventId) : await API.registerEvent(eventId);
+            showToast(r.message || (registered ? 'Đã hủy đăng ký' : 'Đăng ký thành công'), 'success');
+            if (!registered && r.achievements_unlocked?.length) Pages._showAchievementUnlock(r.achievements_unlocked);
+            await Pages.syncEventRegistration(eventId, !!r.is_registered, r.current_participants);
+            const label = eventBtn.querySelector('span');
+            if (label) delete label.dataset.prevLabel;
+            eventBtn.disabled = false;
+            eventBtn.classList.remove('is-pending');
+        } catch (err) {
+            showToast(err.message || 'Không thể xử lý, vui lòng thử lại', 'error');
+            setTogglePending(eventBtn, false);
+        }
+    }
+});
 
 // Global helper cho Poll detail
 async function showPollDetail(pollId, main) {

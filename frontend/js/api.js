@@ -147,6 +147,8 @@ const API = {
     unregisterEvent(id) { return this.post(`/events/${id}/cancel-registration`); },
     cancelRegistration(id) { return this.post(`/events/${id}/cancel-registration`); },
     submitFeedback(id, payload) { return this.post(`/events/${id}/feedback`, payload); },
+    getEventRegistrations(id) { return this.get(`/events/${id}/registrations`); },
+    getEventParticipants(id) { return this.get(`/events/${id}/participants`); },
 
     // ===== POSTS =====
     getPosts(params = {}) {
@@ -240,7 +242,6 @@ const API = {
     // ===== DOCUMENTS =====
     listDocuments(clubId) { return this.get(`/clubs/${clubId}/documents`); },
     addDocument(clubId, payload) { return this.post(`/clubs/${clubId}/documents`, payload); },
-    addDocument(clubId, payload) { return this.post(`/clubs/${clubId}/documents`, payload); },
 
     // ===== REACTIONS =====
     reactTo(targetType, targetId, reactionType) { return this.post('/react', { target_type: targetType, target_id: targetId, reaction_type: reactionType }); },
@@ -325,6 +326,30 @@ const API = {
         return response;
     },
 
+    // ===== AI MODELS & AGENT STREAMING (AI Studio Pro) =====
+    aiGetModelInfo() { return this.get('/ai/model-info'); },
+
+    async aiAgentStream(agent, payload = {}) {
+        const map = {
+            mentor: 'mentor-plan/stream',
+            strategy: 'club-strategy/stream',
+            event: 'event-blueprint/stream',
+            media: 'media-kit/stream'
+        };
+        const endpoint = map[agent];
+        if (!endpoint) throw new Error('Unknown agent: ' + agent);
+        const response = await fetch(`${this.base}/ai-pro/${endpoint}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(this.token && { 'Authorization': `Bearer ${this.token}` })
+            },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error('Agent stream failed');
+        return response;
+    },
+
     // ===== AI ADVANCED FUNCTIONS =====
     async streamChat(message, sessionId = null, context = 'general') {
         return this.aiChatStream(message, sessionId, context);
@@ -379,6 +404,11 @@ const API = {
     // ===== LEADERBOARD =====
     getLeaderboard(period = 'month') { return this.get(`/stats/leaderboard?period=${period}`); },
     getMyRank() { return this.get('/stats/leaderboard/my-rank'); },
+
+    // ===== ANALYTICS =====
+    getStatsTrends(days = 30) { return this.get(`/stats/trends?days=${days}`); },
+    getStatsCategories() { return this.get('/stats/categories'); },
+    getStatsEngagement(days = 30) { return this.get(`/stats/engagement?days=${days}`); },
 
     // ===== CERTIFICATES =====
     getMyCertificates() { return this.get('/certificates'); },
@@ -505,6 +535,18 @@ function getCategoryClass(category) {
         'Truyền thông': 'cat-3'
     };
     return map[category] || 'cat-1';
+}
+
+function getCategoryIcon(category) {
+    const map = {
+        'Học thuật': 'fa-graduation-cap',
+        'Thể thao': 'fa-futbol',
+        'Văn nghệ': 'fa-palette',
+        'Tình nguyện': 'fa-hand-holding-heart',
+        'Kỹ năng': 'fa-lightbulb',
+        'Truyền thông': 'fa-bullhorn'
+    };
+    return map[category] || 'fa-users';
 }
 
 // Helper: debounce

@@ -185,6 +185,7 @@ def get_events_calendar(
             "id": e.id,
             "title": e.title,
             "time": e.start_time.strftime("%H:%M"),
+            "end_time": e.end_time.strftime("%H:%M") if e.end_time else None,
             "location": e.location,
             "status": e.status
         })
